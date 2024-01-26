@@ -1,0 +1,8 @@
+[package]
+name = "controls"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ivo Velthoven <lyr-7d1h@pm.me>"]
+
+[dependencies]
+rapier3d = { version = "0.18.0", features = ["simd-stable"] }
