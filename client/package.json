@@ -15,6 +15,8 @@
     "@types/dat.gui": "^0.7.12",
     "@types/three": "^0.160.0",
     "dat.gui": "^0.7.9",
+    "eslint": "^8.56.0",
+    "prettier": "^3.2.4",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"
   },

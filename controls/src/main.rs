@@ -51,4 +51,3 @@ fn main() {
         println!("Ball altitude: {}", ball_body.translation().y);
     }
 }
-
