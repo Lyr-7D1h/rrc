@@ -3,11 +3,10 @@ import {
   Mesh,
   MeshBasicMaterial,
   PlaneGeometry,
-  Vector3,
 } from "three";
-import { Axis } from "./renderer";
+import { PositionalVector } from "./renderer";
 
-export function plane(axis: Axis): Mesh {
+export function plane(axis: PositionalVector): Mesh {
   const geometry = new PlaneGeometry(3, 3);
   const material = new MeshBasicMaterial({ color: 0x002288, side: DoubleSide });
   const plane = new Mesh(geometry, material);
@@ -18,11 +17,14 @@ export function plane(axis: Axis): Mesh {
 
 export function height(mesh: Mesh): number {
   // if box geometry it is in params
+  const geometry = mesh.geometry;
   if (
-    "parameters" in mesh.geometry &&
-    typeof mesh.geometry.parameters.depth === "number"
+    "parameters" in geometry &&
+     geometry.parameters instanceof Object &&
+    "depth" in geometry.parameters &&
+    typeof geometry.parameters.depth === "number"
   ) {
-    return mesh.geometry.parameters.depth;
+    return geometry.parameters.depth;
   }
   if (mesh.geometry.boundingBox === null) {
     mesh.geometry.computeBoundingBox();
@@ -30,9 +32,9 @@ export function height(mesh: Mesh): number {
   return mesh.geometry.boundingBox?.max.z - mesh.geometry.boundingBox.min.z;
 }
 
-export function warn(...args) {
-  console.warn(args);
+export function warn(message?: any, ...optionalParams: any[]) {
+  console.warn(message, ...optionalParams);
 }
-export function error(...args) {
-  console.error(args);
+export function error(message?: any, ...optionalParams: any[]) {
+  console.error(message, ...optionalParams);
 }

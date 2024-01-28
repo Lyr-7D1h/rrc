@@ -27,6 +27,7 @@ import {
 } from "three";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { error, height } from "./util";
+import { Connection, connect } from "./websocket";
 
 /** Relative position for an indexed buffer geometry */
 // class RelativePosition {
@@ -117,6 +118,18 @@ class Joint extends Mesh {
 class SlidingJoint extends Joint {}
 class RotationalJoint extends Joint {}
 
+const robot = {
+  joints: [
+  ],
+  links: {
+    lift: {
+      length: 10,
+      position: [0,0,0],
+      direction: [0,0,1]
+    }
+  }
+}
+
 class Robot extends Object3D {
   private links: Link[]
   private joints: (SlidingJoint | RotationalJoint)[]
@@ -198,6 +211,8 @@ export class Simulation {
   private controls: OrbitControls;
 
   constructor() {
+    new Connection()
+
     this.scene = new Scene();
 
     this.camera = new PerspectiveCamera(
@@ -219,8 +234,6 @@ export class Simulation {
     this.controls.enableDamping = true;
     // TODO wasd controls
 
-
-
     this.gui = new GUI();
 
     const origin = new AxesHelper(2);
@@ -229,9 +242,8 @@ export class Simulation {
     this.robot = new Robot();
     this.scene.add(this.robot);
     this.robot.buildGUI(this.gui).open()
-    // const cameraFolder = this.gui.addFolder('Camera')
-    // cameraFolder.add(this.controls.rotateLeft, 'rotate', 0, 10)
-    // cameraFolder.open()
+
+    // fps counter
     this.stats = new Stats();
   }
 
