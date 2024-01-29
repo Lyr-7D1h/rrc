@@ -7,7 +7,6 @@ if (WebGL.isWebGLAvailable()) {
   renderer.show();
   renderer.draw();
 } else {
-  const warning = WebGL.getWebGLErrorMessage();
-  // document.getElementById( 'container' ).appendChild( warning );
-  // TODO handle warning
+  const error = WebGL.getWebGLErrorMessage();
+  error(error)
 }

@@ -1,4 +1,4 @@
-use controls::SimulationServer;
+use controls::server::SimulationServer;
 use env_logger::Env;
 
 #[tokio::main]

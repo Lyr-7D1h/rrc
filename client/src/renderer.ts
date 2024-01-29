@@ -26,35 +26,8 @@ import {
   WireframeGeometry,
 } from "three";
 import Stats from "three/examples/jsm/libs/stats.module";
-import { error, height } from "./util";
-import { Connection, connect } from "./websocket";
-
-/** Relative position for an indexed buffer geometry */
-// class RelativePosition {
-// 	vertexIndex: number
-// 	normal: Vector3
-// 	/** The position on the tangent plane made by a vertex and a normal vector */
-// 	position: Vector2
-//
-// 	constructor(vertexIndex: number, normal: Vector3, position: Vector2) {
-// 		this.vertexIndex = vertexIndex
-// 		this.normal = normal.normalize() // ensure normal is normalized
-// 		this.position = position
-// 	}
-//
-// 	// https://github.com/mrdoob/three.js/blob/master/examples/jsm/helpers/VertexNormalsHelper.js
-// 	/** project the relative `this.position` on the plane at `point` with normal `this.normal` and get the real 3d position */
-// 	project(point: Vector3): Vector3 {
-// 		// https://www.reddit.com/r/learnmath/comments/3nfldg/map_2d_point_to_3d_given_an_origin_and_plane/
-// 		// TODO use vertex normal for x,y
-//
-// 		const pos = new Vector3(this.position.x, this.position.y, 0)
-// 		const projection = new Vector3();
-// 		const distance = this.normal.dot(pos) - this.normal.dot(point);
-// 		projection.copy(pos).sub(this.normal.clone().multiplyScalar(distance));
-// 		return projection
-// 	}
-// }
+import { height } from "./geometry";
+import { Connection, connect } from "./connection";
 
 export class PositionalVector {
   point: Vector3;
@@ -211,7 +184,7 @@ export class Simulation {
   private controls: OrbitControls;
 
   constructor() {
-    new Connection()
+    const socket = connect("ws://localhost:6543")
 
     this.scene = new Scene();
 
