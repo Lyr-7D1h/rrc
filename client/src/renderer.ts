@@ -27,20 +27,20 @@ import {
 } from "three";
 import Stats from "three/examples/jsm/libs/stats.module";
 import { height } from "./geometry";
-import { Connection, connect } from "./connection";
+import { Connection } from "./connection";
 
 export class PositionalVector {
   point: Vector3;
   normal: Vector3;
 
   constructor(point?: Vector3, normal?: Vector3) {
-    this.point = point || new Vector3(0,0,0);
-    this.normal = normal ? normal.normalize() :new Vector3(0,0,1)
+    this.point = point || new Vector3(0, 0, 0);
+    this.normal = normal ? normal.normalize() : new Vector3(0, 0, 1);
   }
 
   setLookAt(object: Object3D) {
-    const o = new Vector3()
-    object.getWorldPosition(o)
+    const o = new Vector3();
+    object.getWorldPosition(o);
     o.add(this.normal);
     console.log("Looking at", o);
     object.lookAt(o);
@@ -49,7 +49,7 @@ export class PositionalVector {
 
 /** https://en.wikipedia.org/wiki/Linkage_(mechanical) */
 class Link extends Mesh {
-  private basic_material: MeshBasicMaterial
+  private basic_material: MeshBasicMaterial;
   constructor(width: number, height: number, depth: number) {
     const geometry = new BoxGeometry(width, height, depth);
     const material = new MeshBasicMaterial({
@@ -57,18 +57,23 @@ class Link extends Mesh {
       wireframe: true,
     });
     super(geometry, material);
-    this.basic_material = material
+    this.basic_material = material;
   }
 
   wireframe(value: boolean) {
-    this.basic_material.wireframe = value
+    this.basic_material.wireframe = value;
   }
 }
 
 class Joint extends Mesh {
   /** Join two 3d objects together with a joint using `relPos` of `base` */
-  joinObjects(base: Mesh, attachment: Mesh, base_pos: PositionalVector, attachment_pos?: PositionalVector) {
-    attachment_pos = attachment_pos || new PositionalVector()
+  joinObjects(
+    base: Mesh,
+    attachment: Mesh,
+    base_pos: PositionalVector,
+    attachment_pos?: PositionalVector,
+  ) {
+    attachment_pos = attachment_pos || new PositionalVector();
     const jointHeight = height(this);
     const attachmentHeight = height(attachment);
 
@@ -77,7 +82,7 @@ class Joint extends Mesh {
     // increased by jointHeight in positive or negative direction
     let z = Math.abs(p.z) + jointHeight / 2;
     this.position.set(p.x, p.y, sign * z);
-    // add joint 
+    // add joint
     base.add(this);
     base_pos.setLookAt(this);
 
@@ -92,20 +97,19 @@ class SlidingJoint extends Joint {}
 class RotationalJoint extends Joint {}
 
 const robot = {
-  joints: [
-  ],
+  joints: [],
   links: {
     lift: {
       length: 10,
-      position: [0,0,0],
-      direction: [0,0,1]
-    }
-  }
-}
+      position: [0, 0, 0],
+      direction: [0, 0, 1],
+    },
+  },
+};
 
 class Robot extends Object3D {
-  private links: Link[]
-  private joints: (SlidingJoint | RotationalJoint)[]
+  private links: Link[];
+  private joints: (SlidingJoint | RotationalJoint)[];
 
   constructor() {
     super();
@@ -120,57 +124,73 @@ class Robot extends Object3D {
     // is a static base
     // base.matrixAutoUpdate = false;
 
-    this.joints = []
-    this.links = []
+    this.joints = [];
+    this.links = [];
 
     const lift = new Link(1, 1, 10);
     let joint = new RotationalJoint(new BoxGeometry(1, 1, 0.5));
     let pos = new PositionalVector(new Vector3(0, 0, 0), new Vector3(0, 0, 1));
     joint.joinObjects(base, lift, pos);
-    console.log(joint.position)
-    console.log(joint.localToWorld(joint.position.clone()))
+    console.log(joint.position);
+    console.log(joint.localToWorld(joint.position.clone()));
 
-    this.joints.push(joint)
-    this.links.push(lift)
+    this.joints.push(joint);
+    this.links.push(lift);
 
     const arm = new Link(1, 1, 5);
     joint = new SlidingJoint(new BoxGeometry(1, 1, 1));
     pos = new PositionalVector(new Vector3(0, 0, 4), new Vector3(1, 0, 0));
     joint.joinObjects(lift, arm, pos);
 
-    this.joints.push(joint)
-    this.links.push(arm)
+    this.joints.push(joint);
+    this.links.push(arm);
 
     const lower_arm = new Link(2.5, 1, 1);
     joint = new RotationalJoint(new BoxGeometry(1, 1, 0.5));
-    pos = new PositionalVector(new Vector3(0.75, 0, 1.75), new Vector3(0, 0, -1));
-    joint.joinObjects(arm, lower_arm, pos, new PositionalVector(new Vector3(0.75,0,0)));
+    pos = new PositionalVector(
+      new Vector3(0.75, 0, 1.75),
+      new Vector3(0, 0, -1),
+    );
+    joint.joinObjects(
+      arm,
+      lower_arm,
+      pos,
+      new PositionalVector(new Vector3(0.75, 0, 0)),
+    );
 
-    this.joints.push(joint)
-    this.links.push(lower_arm)
+    this.joints.push(joint);
+    this.links.push(lower_arm);
   }
 
   buildGUI(gui: GUI): GUI {
-    const folder = gui.addFolder('Robot')
-    const jointFolder = folder.addFolder('joints')
+    const folder = gui.addFolder("Robot");
+    const jointFolder = folder.addFolder("joints");
     for (const i in this.joints) {
-      const joint = this.joints[i]
+      const joint = this.joints[i];
       if (joint instanceof RotationalJoint) {
-	jointFolder.add(joint.rotation, "z", -Math.PI*2, Math.PI * 2).name(`rot joint ${i}`)
+        jointFolder
+          .add(joint.rotation, "z", -Math.PI * 2, Math.PI * 2)
+          .name(`rot joint ${i}`);
       }
       if (joint instanceof SlidingJoint) {
-	jointFolder.add(joint.position, "z", -4.5, 4.5).name(`sliding joint ${i}`)
+        jointFolder
+          .add(joint.position, "z", -4.5, 4.5)
+          .name(`sliding joint ${i}`);
       }
     }
-    jointFolder.open()
+    jointFolder.open();
 
-    const debugFolder = folder.addFolder("debug")
-    debugFolder.add({d: true}, "d").name("Wireframe").listen().onChange((b) => {
-      this.links.forEach((l) => l.wireframe(b))
-    })
-    debugFolder.open()
+    const debugFolder = folder.addFolder("debug");
+    debugFolder
+      .add({ d: true }, "d")
+      .name("Wireframe")
+      .listen()
+      .onChange((b) => {
+        this.links.forEach((l) => l.wireframe(b));
+      });
+    debugFolder.open();
 
-    return folder
+    return folder;
   }
 }
 
@@ -184,8 +204,6 @@ export class Simulation {
   private controls: OrbitControls;
 
   constructor() {
-    const socket = connect("ws://localhost:6543")
-
     this.scene = new Scene();
 
     this.camera = new PerspectiveCamera(
@@ -214,7 +232,7 @@ export class Simulation {
 
     this.robot = new Robot();
     this.scene.add(this.robot);
-    this.robot.buildGUI(this.gui).open()
+    this.robot.buildGUI(this.gui).open();
 
     // fps counter
     this.stats = new Stats();

@@ -6,6 +6,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
+    "format": "prettier -w src/",
     "preview": "vite preview"
   },
   "keywords": [],

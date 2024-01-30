@@ -1,9 +1,4 @@
-import {
-  DoubleSide,
-  Mesh,
-  MeshBasicMaterial,
-  PlaneGeometry,
-} from "three";
+import { DoubleSide, Mesh, MeshBasicMaterial, PlaneGeometry } from "three";
 import { PositionalVector } from "./renderer";
 
 export function plane(axis: PositionalVector): Mesh {
@@ -20,7 +15,7 @@ export function height(mesh: Mesh): number {
   const geometry = mesh.geometry;
   if (
     "parameters" in geometry &&
-     geometry.parameters instanceof Object &&
+    geometry.parameters instanceof Object &&
     "depth" in geometry.parameters &&
     typeof geometry.parameters.depth === "number"
   ) {

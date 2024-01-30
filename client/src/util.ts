@@ -1,17 +1,25 @@
 import { message } from "./message";
 
-export function warn(msg?: any, ...optionalParams: any[]) {
+export function info(msg: any, permanent?: boolean): HTMLElement {
   if (typeof msg !== "string") {
-    msg = JSON.stringify(msg)
+    msg = JSON.stringify(msg);
   }
-  console.warn(String(msg), ...optionalParams);
-  message("warn", msg, 3)
+  console.info(msg);
+  return message("info", msg, permanent ? undefined : 3);
 }
 
-export function error(msg?: any, ...optionalParams: any[]) {
+export function warn(msg: any, permanent?: boolean): HTMLElement {
   if (typeof msg !== "string") {
-    msg = JSON.stringify(msg)
+    msg = JSON.stringify(msg);
   }
-  console.error(String(msg), ...optionalParams);
-  message("error", msg, 3)
+  console.warn(msg);
+  return message("warn", msg, permanent ? undefined : 3);
+}
+
+export function error(msg: any, permanent?: boolean): HTMLElement {
+  if (typeof msg !== "string") {
+    msg = JSON.stringify(msg);
+  }
+  console.error(msg);
+  return message("error", msg, permanent === true ? undefined : 3);
 }
