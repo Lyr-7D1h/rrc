@@ -57,6 +57,7 @@ class Link extends Mesh {
   toggleMidpoint() {
     if (this.midpoint) {
       this.remove(this.midpoint);
+      this.midpoint = undefined;
       return;
     }
     const geometry = new BufferGeometry();
@@ -65,8 +66,8 @@ class Link extends Mesh {
       new BufferAttribute(new Float32Array([0, 0, 0]), 3),
     );
     const dotMaterial = new PointsMaterial({ size: 50, color: 0x00ffff });
-    const dot = new Points(geometry, dotMaterial);
-    this.add(dot);
+    this.midpoint = new Points(geometry, dotMaterial);
+    this.add(this.midpoint);
   }
 }
 
@@ -92,25 +93,23 @@ class Joint extends Object3D {
     pivot.updateObject(attachment);
     this.add(attachment);
 
-    this.show();
+    this.togglePoint();
   }
 
-  show() {
-    if (this.dot) return;
+  togglePoint() {
+    if (this.dot) {
+      this.remove(this.dot)
+      this.dot = undefined
+      return
+    };
     const geometry = new BufferGeometry();
     geometry.setAttribute(
       "position",
       new BufferAttribute(new Float32Array([0, 0, 0]), 3),
     );
     const dotMaterial = new PointsMaterial({ size: 50, color: 0xffff00 });
-    const dot = new Points(geometry, dotMaterial);
-    this.add(dot);
-    this.dot = dot;
-  }
-  hide() {
-    if (this.dot) {
-      this.remove(this.dot);
-    }
+    this.dot = new Points(geometry, dotMaterial);
+    this.add(this.dot);
   }
 }
 class SlidingJoint extends Joint {}
@@ -241,12 +240,8 @@ class Robot extends Object3D {
       .add({ d: true }, "d")
       .name("Show Joints")
       .listen()
-      .onChange((b) => {
-        if (b) {
-          this.joints.forEach((j) => j.show());
-        } else {
-          this.joints.forEach((j) => j.hide());
-        }
+      .onChange(() => {
+        this.joints.forEach((j) => j.togglePoint());
       });
     debugFolder
       .add({ d: false }, "d")
