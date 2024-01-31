@@ -112,13 +112,22 @@ class Joint extends Object3D {
     this.add(this.dot);
   }
 }
-class SlidingJoint extends Joint {}
-class RotationalJoint extends Joint {}
-class StaticJoint extends Joint {}
+class SlidingJoint extends Joint {
+  override type: string = "sliding";
+}
+class RotationalJoint extends Joint {
+  override type: string = "rotational";
+  constraint() {
+
+  }
+}
+class StaticJoint extends Joint {
+  override type: string = "static";
+}
 
 class Robot extends Object3D {
   private links: Link[];
-  private joints: (SlidingJoint | RotationalJoint)[];
+  private joints: Joint[];
 
   constructor() {
     super();
@@ -129,15 +138,15 @@ class Robot extends Object3D {
     });
     const base = new Mesh(new PlaneGeometry(200, 200), material);
     this.add(base);
-    // is a static base
-    // base.matrixAutoUpdate = false;
 
     this.joints = [];
     this.links = [];
 
+    let joint: Joint;
+
     const width = 150;
     const lift = new Link(new BoxGeometry(width, width, 2000));
-    let joint = new RotationalJoint(
+    joint = new RotationalJoint(
       base,
       lift,
       posvec3(),
@@ -193,16 +202,28 @@ class Robot extends Object3D {
     this.joints.push(joint);
     this.links.push(extensionExtension);
 
-    const gripper = new Link(new BoxGeometry(50, width, width));
+    const gripper = new Link(new BoxGeometry(50, width, width-25));
     joint = new SlidingJoint(
       extensionExtension,
       gripper,
       posvec3(vec3(0, -(width / 2 - 50 / 2), -50 / 2), vec3(0, 0, -1)),
-      pivot(vec3(0, 0, -50 / 2 - 50)),
+      pivot(vec3(0, 0, -62.5)),
     );
 
     this.joints.push(joint);
     this.links.push(gripper);
+  }
+
+  spec() {
+    return {
+      links: this.links.map((link) => ({
+        vertices: Array.from(link.geometry.getAttribute("position").array),
+        indices: link.geometry.index ? Array.from(link.geometry.index.array) : []
+      })),
+      joints: this.joints.map((joint) => ({
+        type: joint.type 
+      }))
+    }
   }
 
   loadFromSpec(spec: Object) {
@@ -299,6 +320,8 @@ export class Simulation {
     this.robot = new Robot();
     this.scene.add(this.robot);
     this.robot.buildGUI(this.gui).open();
+
+    console.log(this.robot.spec())
 
     // fps counter
     this.stats = new Stats();
