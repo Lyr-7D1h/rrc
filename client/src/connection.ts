@@ -1,50 +1,63 @@
 /** Connect to socket in a blocking manner erroring in case of timeout or error */
 export async function connect(addr: string): Promise<Connection> {
   return new Promise((resolve, reject) => {
-    let timeout;
-    const connection = new Connection(socket)
+    const connection = new Connection(addr);
 
-    // TODO: use something like protobuf for sending messages
-    // socket.onmessage = (e) => console.log(e);
-
-    socket.onerror = () => {
+    let returned = false;
+    connection.on("error", () => {
+      returned = true;
       reject(`connection to ${addr} failed`);
-    };
+    });
 
-    let tries = 0;
-    let attempt = () => {
-      if (connection.connected) {
-        return resolve();
-      }
-      if (tries === 16) {
+    connection.on("open", () => {
+      returned = true;
+      resolve(connection);
+    });
+
+    setTimeout(() => {
+      if (returned === false) {
         return reject(`connection timed out`);
       }
-      tries += 1;
-      timeout = setTimeout(attempt, 500);
-    };
+    }, 8000);
   });
 }
 
+export type Command = {
+  type: "init";
+};
+
 export class Connection {
-  private socket: WebSocket
+  private socket: WebSocket;
 
   constructor(addr: string) {
-    this.socket = new WebSocket(addr);
-    this.socket.onerror = (e) => this.errorEvents.push(e);
-
-    this.events = []
-    this.errorEvents = []
+    this.socket = new WebSocket(`ws://${addr}`);
   }
 
-  onMessage(cb: (object: Object) => {}) {
-    this.socket.addEventListener("message", (e) => cb(JSON.parse(e.data)))
+  on(type: "message" | "open" | "error", cb: (event: Event) => void) {
+    switch (type) {
+      case "message":
+        this.socket.addEventListener("message", (e) => cb(JSON.parse(e.data)));
+        break;
+      case "open":
+      case "error":
+        this.socket.addEventListener(type, (e) => cb(e));
+    }
   }
 
-  onOpen(cb: (object: Object) => {}) {
-    this.socket.addEventListener("open", (e) => cb(JSON.parse(e.data)))
+  send(cmd: Command): Promise<Object> {
+    return new Promise((resolve, reject) => {
+      this.on("message", resolve);
+      this.on("error", reject);
+
+      this.socket.send(JSON.stringify(cmd));
+    });
+  }
+
+  init() {
+    this.socket.send(JSON.stringify({}));
   }
 
   connected() {
-      return this.socket.readyState == 1;
+    return this.socket.readyState == 1;
   }
 }

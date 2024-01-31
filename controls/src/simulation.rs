@@ -2,6 +2,8 @@ use log::info;
 use rapier3d::{control::KinematicCharacterController, na::Vector3, prelude::*};
 use serde::{self, Serialize};
 
+pub struct Specs {}
+
 #[derive(Serialize)]
 pub struct Robot {
     #[serde(skip_serializing)]
@@ -23,22 +25,39 @@ impl Robot {
             .build();
         let base = rigid_body_set.insert(base);
 
-        let arm = RigidBodyBuilder::kinematic_position_based()
+        let link = RigidBodyBuilder::kinematic_position_based()
             .lock_translations()
             .lock_rotations()
             .build();
-        let arm = rigid_body_set.insert(arm);
-        let collider = ColliderBuilder::trimesh(vec![point![1.0, 2.0, 3.0]], vec![[0, 0, 0]])
-            // lets say each link is made of steel
-            .density(7.85)
-            .build();
-        collider_set.insert_with_parent(collider, arm, &mut rigid_body_set);
+        let link = rigid_body_set.insert(link);
+
+        let link_collider = ColliderBuilder::trimesh(
+            vec![point![1.0, 2.0, 3.0]],
+            vec![
+                [0, 0, 0], // [0, 2, 1],
+                           // [2, 3, 1],
+                           // [4, 6, 5],
+                           // [6, 7, 5],
+                           // [8, 10, 9],
+                           // [10, 11, 9],
+                           // [12, 14, 13],
+                           // [14, 15, 13],
+                           // [16, 18, 17],
+                           // [18, 19, 17],
+                           // [20, 22, 21],
+                           // [22, 23, 21],
+            ],
+        )
+        // lets say each link is made of steel
+        .density(7.85)
+        .build();
+        collider_set.insert_with_parent(link_collider, link, &mut rigid_body_set);
 
         // add a joint between base and arm
         let joint = RevoluteJointBuilder::new(Vector::z_axis())
             .local_anchor1(point![0.0, 0.0, 1.0])
             .local_anchor2(point![0.0, 0.0, -3.0]);
-        joint_set.insert(base, arm, joint, true);
+        joint_set.insert(base, link, joint, true);
 
         // Create the character controller, here with the default configuration.
         let controller = KinematicCharacterController::default();

@@ -1,17 +1,28 @@
-use std::{cell::RefCell, rc::Rc};
-
-use anyhow::{Context, Result};
-use tokio_tungstenite::tungstenite::Message;
+use anyhow::{anyhow, Context, Result};
+use serde::{Deserialize, Serialize};
+use tokio_tungstenite::tungstenite;
 
 use super::simulation::Simulation;
 
-use futures_util::{future, SinkExt, StreamExt, TryStreamExt};
+use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 
 use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
 
 pub struct SimulationServer {
     listener: TcpListener,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandType {
+    Init,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Command {
+    #[serde(rename = "type")]
+    command_type: CommandType,
 }
 
 impl SimulationServer {
@@ -59,18 +70,27 @@ impl SimulationServer {
             .context("Error during the websocket handshake occurred")?;
         info!("New WebSocket connection: {}", addr);
 
-        let (mut write, read) = ws_stream.split();
+        let (mut write, mut read) = ws_stream.split();
 
-        write
-            .send(Message::Text(specs.to_string()))
-            .await
-            .context("failed to send specs")?;
+        let command = read.next().await.context("timeout")?.context("timeout")?;
+
+        let command: Command = match command {
+            tungstenite::Message::Text(data) => {
+                serde_json::from_str(&data).context("failed to parse json")?
+            }
+            _ => return Err(anyhow!("invalid data type")),
+        };
+
+        match command.command_type {
+            CommandType::Init => {
+                write
+                    .send(tungstenite::Message::Text(specs.to_string()))
+                    .await
+                    .context("failed to send specs")?;
+            }
+        }
 
         // We should not forward messages other than text or binary.
-        read.try_filter(|msg| future::ready(msg.is_text() || msg.is_binary()))
-            .forward(write)
-            .await
-            .expect("Failed to forward messages");
 
         Ok(())
     }
