@@ -72,7 +72,7 @@ export class PositionalVector {
   }
 
   /** update 3d object so up is same direction as `this.normal` and located at `this.point` in the direction of the normal */
-  updateObject(object: Object3D) {
+  moveObject(object: Object3D) {
     object.position.copy(this.point);
     object.quaternion.setFromAxisAngle(this.normal, Math.PI / 2);
   }

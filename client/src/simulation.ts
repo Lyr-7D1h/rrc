@@ -21,8 +21,6 @@ import {
   PointsMaterial,
   Quaternion,
   Scene,
-  Shape,
-  ShapeGeometry,
   Vector3,
   WebGLRenderer,
 } from "three";
@@ -41,13 +39,13 @@ import {
 class Link extends Mesh {
   private basicMaterial: MeshBasicMaterial;
   private midpoint?: Points;
-  constructor(geometry: BufferGeometry) {
-    const material = new MeshBasicMaterial({
+  constructor(geometry: BufferGeometry, material?: MeshBasicMaterial) {
+    let mat = material ? material : new MeshBasicMaterial({
       color: 0x888888,
-      wireframe: true,
     });
-    super(geometry, material);
-    this.basicMaterial = material;
+    mat.wireframe = true;
+    super(geometry, mat);
+    this.basicMaterial = mat;
   }
 
   wireframe(value: boolean) {
@@ -72,12 +70,18 @@ class Link extends Mesh {
 }
 
 class Joint extends Object3D {
+  base: Mesh;
+  attachment: Mesh;
+
   private dot?: Points;
-  /** Join two 3d objects together with a joint using a relative `jointPos` on `base` with attachment oriented using `pivot` */
+  /** Join two 3d objects together with a joint using local space coordinates */
   constructor(
+    name: string,
     base: Mesh,
     attachment: Mesh,
+    /** position and direction in the local space of `base` */
     jointPos?: PositionalVector,
+    /** position, direction and orientation in the local space of `attachment` */
     pivot?: Pivot,
   ) {
     super();
@@ -85,15 +89,20 @@ class Joint extends Object3D {
     jointPos = jointPos || new PositionalVector();
     pivot = pivot || new Pivot();
 
-    // add joint
-    jointPos.updateObject(this);
+    // go to local position of base and put joint there
+    jointPos.moveObject(this);
     base.add(this);
 
-    // add attachment to joints
+    // translate attachment
+    pivot.point.negate()
     pivot.updateObject(attachment);
     this.add(attachment);
 
     this.togglePoint();
+
+    this.name = name;
+    this.base = base;
+    this.attachment = attachment;
   }
 
   togglePoint() {
@@ -117,111 +126,130 @@ class SlidingJoint extends Joint {
 }
 class RotationalJoint extends Joint {
   override type: string = "rotational";
-  constraint() {
-
-  }
 }
 class StaticJoint extends Joint {
   override type: string = "static";
 }
 
+
 class Robot extends Object3D {
+  /** simple point without geometry at origin */
+  private base: Link;
   private links: Link[];
   private joints: Joint[];
 
   constructor() {
     super();
-    const material = new MeshBasicMaterial({
-      color: 0xffff00,
-      side: DoubleSide,
-      wireframe: true,
-    });
-    const base = new Mesh(new PlaneGeometry(200, 200), material);
-    this.add(base);
 
     this.joints = [];
     this.links = [];
 
-    let joint: Joint;
+    // debug floor
+    const material = new MeshBasicMaterial({
+      color: 0xffff00,
+      side: DoubleSide,
+      wireframe: true
+    });
+    this.add(new Mesh(new PlaneGeometry(300, 300), material));
 
+    this.base = new Link(new BufferGeometry())
+    this.add(this.base)
+    this.addLink(this.base)
+
+    this.default()
+  }
+  
+  default() {
     const width = 150;
     const lift = new Link(new BoxGeometry(width, width, 2000));
-    joint = new RotationalJoint(
-      base,
+    this.addLink(lift)
+    this.addJoint(new RotationalJoint(
+      "swing",
+      this.base,
       lift,
       posvec3(),
-      pivot(vec3(0, 0, 1000)),
-    );
-
-    this.joints.push(joint);
-    this.links.push(lift);
+      pivot(vec3(0, 0, -1000)),
+    ));
 
     const arm = new Link(new BoxGeometry(width, width, 700));
+    this.addLink(arm)
     // pos = new PositionalVector(new Vector3(-width/2, 0, 1000 - width / 2), new Vector3(1, 0, 0));
     let jointPos = posvec3(
       vec3(0, -width / 2, 1000 - width / 2),
       vec3(1, 0, 0),
     );
-    let attachmentPivot = pivot(vec3(0, 0, 700 / 2));
-    joint = new SlidingJoint(lift, arm, jointPos, attachmentPivot);
-
-    this.joints.push(joint);
-    this.links.push(arm);
-
+    let attachmentPivot = pivot(vec3(0, 0, - (700 / 2)));
+    this.addJoint(new SlidingJoint("lift", lift, arm, jointPos, attachmentPivot));
+    
     const lowerArm = new Link(new BoxGeometry(width, width, 750));
+    this.addLink(lowerArm)
     jointPos = posvec3(vec3(0, -width / 2, 750 / 2 - width / 2), vec3(1, 0, 0));
     attachmentPivot = pivot(
-      vec3(0, -width / 2, 750 / 2 - width / 2),
+      vec3(0, width / 2, - 750 / 2 + width / 2),
       quat(-1, 0, 0),
     );
-    joint = new RotationalJoint(arm, lowerArm, jointPos, attachmentPivot);
-
-    this.joints.push(joint);
-    this.links.push(lowerArm);
-
-    const geometry = new BoxGeometry(width, width, 300);
-    const extension = new Link(geometry);
-    joint = new RotationalJoint(
+    this.addJoint(new RotationalJoint("elbow", arm, lowerArm, jointPos, attachmentPivot));
+    
+    const extension = new Link(new BoxGeometry(width, width, 300));
+    this.addLink(extension)
+    this.addJoint(new RotationalJoint(
+      "wrist",
       lowerArm,
       extension,
       posvec3(vec3(0, -width / 2, 750 / 2 - width / 2), vec3(1, 0, 0)),
-      pivot(vec3(0, 0, 300 / 2)),
-    );
-
-    this.joints.push(joint);
-    this.links.push(extension);
+      pivot(vec3(0, 0, -300 / 2)),
+    ));
 
     const extensionExtension = new Link(new BoxGeometry(width, width, 50));
-    joint = new StaticJoint(
+    this.addLink(extensionExtension)
+    this.addJoint(new StaticJoint(
+      "",
       extension,
       extensionExtension,
       posvec3(vec3(0, width / 2, 0), vec3(1, 0, 0)),
-      pivot(vec3(0, -width / 2, 0), quat(1, 0, 0)),
-    );
+      pivot(vec3(0, width / 2, 0), quat(1, 0, 0)),
+    ));
 
-    this.joints.push(joint);
-    this.links.push(extensionExtension);
 
     const gripper = new Link(new BoxGeometry(50, width, width-25));
-    joint = new SlidingJoint(
+    this.addLink(gripper)
+    this.addJoint( new SlidingJoint(
+      "gripper",
       extensionExtension,
       gripper,
       posvec3(vec3(0, -(width / 2 - 50 / 2), -50 / 2), vec3(0, 0, -1)),
-      pivot(vec3(0, 0, -62.5)),
-    );
+      pivot(vec3(0, 0, 62.5)),
+    ));
+  }
 
-    this.joints.push(joint);
-    this.links.push(gripper);
+  addLink(link: Link) { 
+    link.name = this.links.length.toString()
+    this.links.push(link)
+  }
+
+  addJoint(joint: Joint) {
+    this.joints.push(joint)
   }
 
   spec() {
     return {
+      // shape only
       links: this.links.map((link) => ({
-        vertices: Array.from(link.geometry.getAttribute("position").array),
+        vertices: link.geometry.getAttribute("position") ? Array.from(link.geometry.getAttribute("position").array): [],
         indices: link.geometry.index ? Array.from(link.geometry.index.array) : []
       })),
       joints: this.joints.map((joint) => ({
-        type: joint.type 
+        type: joint.type ,
+        link1: {
+          index: Number(joint.base.name),
+          position: Array.from(joint.position),
+          direction: Array.from(vec3(0,0,1).applyQuaternion(joint.quaternion))
+        },
+        link2: {
+          index: Number(joint.attachment.name),
+          position: Array.from(joint.attachment.position),
+          quaternion: Array.from(joint.attachment.quaternion)
+        }
       }))
     }
   }
@@ -266,7 +294,7 @@ class Robot extends Object3D {
       });
     debugFolder
       .add({ d: false }, "d")
-      .name("Show Midpoints")
+      .name("Show Positions")
       .listen()
       .onChange(() => {
         this.links.forEach((j) => j.toggleMidpoint());
@@ -321,7 +349,7 @@ export class Simulation {
     this.scene.add(this.robot);
     this.robot.buildGUI(this.gui).open();
 
-    console.log(this.robot.spec())
+    console.log(JSON.stringify(this.robot.spec()))
 
     // fps counter
     this.stats = new Stats();

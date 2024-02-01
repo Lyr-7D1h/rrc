@@ -23,3 +23,11 @@ export function error(msg: any, permanent?: boolean): HTMLElement {
   console.error(msg);
   return message("error", msg, permanent === true ? undefined : 3);
 }
+
+export function toNumber(n: string): number | null {
+  const num = Number(n)
+  if (typeof num === "number") {
+    return num
+  }
+  return null;
+}

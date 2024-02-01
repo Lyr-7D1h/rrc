@@ -2,27 +2,28 @@ use anyhow::{anyhow, Context, Result};
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::tungstenite;
 
+use crate::specs::Specs;
+
 use super::simulation::Simulation;
 
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 
-use tokio::net::{TcpListener, TcpStream, ToSocketAddrs};
+use tokio::{
+    net::{TcpListener, TcpStream, ToSocketAddrs},
+    sync::mpsc::{channel, Sender},
+};
 
 pub struct SimulationServer {
     listener: TcpListener,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
-pub enum CommandType {
-    Init,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Command {
-    #[serde(rename = "type")]
-    command_type: CommandType,
+pub enum Command {
+    Init { specs: Specs },
+    Move { position: [f32; 3] },
 }
 
 impl SimulationServer {
@@ -35,6 +36,8 @@ impl SimulationServer {
     pub async fn listen(mut self) -> Result<()> {
         let simulation = Simulation::new();
 
+        let (tx, rx) = channel::<Command>(100);
+
         // build specification of robots to be send to new sessions
         // NOTE: currently using the intial state of `Robot` later on we might want to use official
         // specs to be send to the client
@@ -44,7 +47,7 @@ impl SimulationServer {
         tokio::spawn(async move {
             // only accept a single session
             while let Ok((mut stream, _)) = self.listener.accept().await {
-                if let Err(e) = self.session(&mut stream, &specs).await {
+                if let Err(e) = self.session(&mut stream, &specs, tx.clone()).await {
                     error!("Closing session to {:?}", stream.local_addr());
                     error!("{e}")
                 }
@@ -54,12 +57,17 @@ impl SimulationServer {
         // simulation should be always be running as when this is connected to a real robot it
         // should keep its physical sim in check
         let mut simulation = Simulation::new();
-        simulation.run(|s| {});
+        simulation.run(rx, |s| {});
 
         Ok(())
     }
 
-    async fn session(&mut self, stream: &mut TcpStream, specs: &String) -> Result<()> {
+    async fn session(
+        &mut self,
+        stream: &mut TcpStream,
+        specs: &String,
+        sender: Sender<Command>,
+    ) -> Result<()> {
         let addr = stream
             .peer_addr()
             .context("connected streams should have a peer address")?;
@@ -81,8 +89,8 @@ impl SimulationServer {
             _ => return Err(anyhow!("invalid data type")),
         };
 
-        match command.command_type {
-            CommandType::Init => {
+        match command {
+            Command::Init => {
                 write
                     .send(tungstenite::Message::Text(specs.to_string()))
                     .await
