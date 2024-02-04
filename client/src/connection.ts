@@ -1,3 +1,5 @@
+import { error } from "./util";
+
 /** Connect to socket in a blocking manner erroring in case of timeout or error */
 export async function connect(addr: string): Promise<Connection> {
   return new Promise((resolve, reject) => {
@@ -24,6 +26,7 @@ export async function connect(addr: string): Promise<Connection> {
 
 export type Command = {
   type: "init";
+  specs: unknown
 };
 
 export class Connection {
@@ -33,6 +36,7 @@ export class Connection {
     this.socket = new WebSocket(`ws://${addr}`);
   }
 
+  on(type: "message", cb: (data: Object) => void): void
   on(type: "message" | "open" | "error", cb: (event: Event) => void) {
     switch (type) {
       case "message":
@@ -44,13 +48,8 @@ export class Connection {
     }
   }
 
-  send(cmd: Command): Promise<Object> {
-    return new Promise((resolve, reject) => {
-      this.on("message", resolve);
-      this.on("error", reject);
-
-      this.socket.send(JSON.stringify(cmd));
-    });
+  send(cmd: Command) {
+    this.socket.send(JSON.stringify(cmd));
   }
 
   init() {

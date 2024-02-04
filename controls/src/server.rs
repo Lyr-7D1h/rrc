@@ -1,12 +1,15 @@
-use anyhow::{anyhow, Context, Result};
-use serde::{Deserialize, Serialize};
-use tokio_tungstenite::tungstenite;
+use std::{ops::Deref, sync::Arc, thread::sleep, time::Duration};
 
-use crate::specs::Specs;
+use anyhow::{anyhow, Context, Result};
+use crossbeam::epoch::{pin, Atomic, Owned};
+use serde::{Deserialize, Serialize};
+use tokio_tungstenite::tungstenite::{self, Message};
+
+use crate::{simulation::JointValue, specs::Specs};
 
 use super::simulation::Simulation;
 
-use futures_util::{SinkExt, StreamExt};
+use futures_util::{FutureExt, SinkExt, TryStreamExt};
 use log::{error, info};
 
 use tokio::{
@@ -14,10 +17,45 @@ use tokio::{
     sync::mpsc::{channel, Sender},
 };
 
-pub struct SimulationServer {
-    listener: TcpListener,
-}
-
+// pub struct State<N> {
+//     ro: Arc<N>,
+//     has_next: AtomicBool,
+//     next: Option<Arc<State<N>>>,
+// }
+//
+// impl<N> State<N> {
+//     pub fn new(value: N) -> Arc<State<N>> {
+//         return Arc::new(State {
+//             ro: Arc::new(value),
+//             has_next: AtomicBool::new(false),
+//             next: None,
+//         });
+//     }
+//
+//     pub fn clone(state: &Arc<State<N>>) -> Arc<State<N>> {
+//         state.clone()
+//     }
+//
+//     pub fn update(&mut self, value: N) {
+//         self.next = Some(State::new(value));
+//         self.has_next
+//             .store(true, std::sync::atomic::Ordering::Relaxed)
+//     }
+// }
+//
+// impl<N> DerefMut for State<N> {
+//     fn deref_mut(&mut self) -> &mut Self::Target {
+//         todo!()
+//     }
+// }
+//
+// pub fn read<N>(mut state: Arc<State<N>>) -> Arc<N> {
+//     while state.has_next.load(std::sync::atomic::Ordering::Relaxed) {
+//         state = state.next.expect("expected next state, has_next flag set");
+//     }
+//     state.ro
+// }
+//
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
@@ -26,6 +64,11 @@ pub enum Command {
     Move { position: [f32; 3] },
 }
 
+pub struct SimulationServer {
+    listener: TcpListener,
+}
+
+type State = Arc<Atomic<Owned<Vec<JointValue>>>>;
 impl SimulationServer {
     pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<SimulationServer> {
         let listener = TcpListener::bind(addr).await?;
@@ -33,21 +76,21 @@ impl SimulationServer {
         return Ok(SimulationServer { listener });
     }
 
-    pub async fn listen(mut self) -> Result<()> {
-        let simulation = Simulation::new();
-
-        let (tx, rx) = channel::<Command>(100);
-
-        // build specification of robots to be send to new sessions
-        // NOTE: currently using the intial state of `Robot` later on we might want to use official
-        // specs to be send to the client
-        let specs = serde_json::to_string(simulation.robot()).context("could not parse robot")?;
+    pub fn listen(mut self) -> Result<()> {
+        let state = Arc::new(Atomic::new(Owned::<Vec<JointValue>>::new(vec![])));
+        let (cmd_tx, cmd_rx) = channel::<Command>(100);
 
         info!("Listening on: {:?}", self.listener.local_addr()?);
+
+        let state_clone = state.clone();
+
+        // only accept a single session
         tokio::spawn(async move {
-            // only accept a single session
             while let Ok((mut stream, _)) = self.listener.accept().await {
-                if let Err(e) = self.session(&mut stream, &specs, tx.clone()).await {
+                if let Err(e) = self
+                    .session(&mut stream, state_clone.clone(), cmd_tx.clone())
+                    .await
+                {
                     error!("Closing session to {:?}", stream.local_addr());
                     error!("{e}")
                 }
@@ -55,9 +98,14 @@ impl SimulationServer {
         });
 
         // simulation should be always be running as when this is connected to a real robot it
-        // should keep its physical sim in check
+        // should keep its physical sim in check and handle possible feedback
         let mut simulation = Simulation::new();
-        simulation.run(rx, |s| {});
+        simulation.run(cmd_rx, move |s| {
+            let update = s.robot().joint_values();
+            let update = Owned::new(update);
+
+            state.store(Owned::new(update), std::sync::atomic::Ordering::Relaxed);
+        });
 
         Ok(())
     }
@@ -65,41 +113,55 @@ impl SimulationServer {
     async fn session(
         &mut self,
         stream: &mut TcpStream,
-        specs: &String,
-        sender: Sender<Command>,
+        state: State,
+        cmd_tx: Sender<Command>,
     ) -> Result<()> {
         let addr = stream
             .peer_addr()
             .context("connected streams should have a peer address")?;
         info!("Peer address: {}", addr);
 
-        let ws_stream = tokio_tungstenite::accept_async(stream)
+        let mut ws_stream = tokio_tungstenite::accept_async(stream)
             .await
-            .context("Error during the websocket handshake occurred")?;
+            .context("Error during the websocket handshake occurred")?
+            .into_stream();
         info!("New WebSocket connection: {}", addr);
 
-        let (mut write, mut read) = ws_stream.split();
+        loop {
+            if let Some(msg) = ws_stream.try_next().now_or_never() {
+                if let Some(message) = msg.context("error occurred while reading from stream")? {
+                    let command = match message {
+                        Message::Text(text) => {
+                            serde_json::from_str(&text).context("failed to parse command")?
+                        }
+                        Message::Close(_) => return Ok(()),
+                        _ => return Err(anyhow!("invalid message data type")),
+                    };
+                    cmd_tx
+                        .send(command)
+                        .await
+                        .context("failed to send command to simulation")?;
+                }
+            };
 
-        let command = read.next().await.context("timeout")?.context("timeout")?;
+            let update = {
+                let p = pin();
+                let update = unsafe {
+                    state
+                        .load(std::sync::atomic::Ordering::Relaxed, &p)
+                        .deref()
+                        .deref()
+                };
+                serde_json::to_string(update).context("failed to parse joint values")?
+            };
+            ws_stream
+                .send(tungstenite::Message::Text(update))
+                .await
+                .context("failed to send update")?;
 
-        let command: Command = match command {
-            tungstenite::Message::Text(data) => {
-                serde_json::from_str(&data).context("failed to parse json")?
-            }
-            _ => return Err(anyhow!("invalid data type")),
-        };
-
-        match command {
-            Command::Init => {
-                write
-                    .send(tungstenite::Message::Text(specs.to_string()))
-                    .await
-                    .context("failed to send specs")?;
-            }
+            // TODO ensure update frequency makes for smooth graphical display
+            // Wait ~1/60 second before sending new update
+            sleep(Duration::from_millis(16));
         }
-
-        // We should not forward messages other than text or binary.
-
-        Ok(())
     }
 }

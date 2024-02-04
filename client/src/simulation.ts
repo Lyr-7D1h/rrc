@@ -69,7 +69,7 @@ class Link extends Mesh {
   }
 }
 
-class Joint extends Object3D {
+abstract class Joint extends Object3D {
   base: Mesh;
   attachment: Mesh;
 
@@ -120,15 +120,40 @@ class Joint extends Object3D {
     this.dot = new Points(geometry, dotMaterial);
     this.add(this.dot);
   }
+
+  abstract contraints(): [number,number] | null
+
+  abstract setContraints(min: number, max:number): void
+
+  abstract update(value: number): void
 }
 class SlidingJoint extends Joint {
   override type: string = "sliding";
+  update(value:number) {}
+  contraints(): [number, number] | null {
+      throw new Error("Method not implemented.");
+  }
+  setContraints(min: number, max: number): void {
+      throw new Error("Method not implemented.");
+  }
 }
 class RotationalJoint extends Joint {
   override type: string = "rotational";
+  update(value:number) {}
+  contraints(): [number, number] | null {
+      throw new Error("Method not implemented.");
+  }
+  setContraints(min: number, max: number): void {
+      throw new Error("Method not implemented.");
+  }
 }
 class StaticJoint extends Joint {
   override type: string = "static";
+  update(value:number) {}
+  contraints(): [number, number] | null {
+    return null
+  }
+  override setContraints(): void {}
 }
 
 
@@ -231,7 +256,7 @@ class Robot extends Object3D {
     this.joints.push(joint)
   }
 
-  spec() {
+  specs() {
     return {
       // shape only
       links: this.links.map((link) => ({
@@ -254,9 +279,8 @@ class Robot extends Object3D {
     }
   }
 
-  loadFromSpec(spec: Object) {
-    console.log(spec);
-    this.updateMatrix();
+  updateJoint(index: number, value: number) {
+    this.joints[index]?.update(value)
   }
 
   buildGUI(gui: GUI): GUI {
@@ -349,16 +373,17 @@ export class Simulation {
     this.scene.add(this.robot);
     this.robot.buildGUI(this.gui).open();
 
-    console.log(JSON.stringify(this.robot.spec()))
-
     // fps counter
     this.stats = new Stats();
   }
 
   /** Build the initial state of the simulation */
   async init() {
-    const spec = await this.connection.send({ type: "init" });
-    this.robot.loadFromSpec(spec);
+    this.connection.send({ type: "init", specs: this.robot.specs() });
+
+    this.connection.on("message", (data) => {
+      console.log(data)
+    })
 
     document.body.appendChild(this.stats.dom);
     document.body.appendChild(this.renderer.domElement);
