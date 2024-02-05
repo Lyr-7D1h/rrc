@@ -25,9 +25,9 @@ export function error(msg: any, permanent?: boolean): HTMLElement {
 }
 
 export function toNumber(n: string): number | null {
-  const num = Number(n)
+  const num = Number(n);
   if (typeof num === "number") {
-    return num
+    return num;
   }
   return null;
 }

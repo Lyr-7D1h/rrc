@@ -1,11 +1,11 @@
-use std::{ops::Deref, sync::Arc, thread::sleep, time::Duration};
+use std::{fmt::Write, ops::Deref, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
-use crossbeam::epoch::{pin, Atomic, Owned};
-use serde::{Deserialize, Serialize};
+use crossbeam::epoch::{pin, Atomic, Owned, Shared};
+use serde::{de::Error, Deserialize, Deserializer};
 use tokio_tungstenite::tungstenite::{self, Message};
 
-use crate::{simulation::JointValue, specs::Specs};
+use crate::robot::JointValue;
 
 use super::simulation::Simulation;
 
@@ -17,58 +17,34 @@ use tokio::{
     sync::mpsc::{channel, Sender},
 };
 
-// pub struct State<N> {
-//     ro: Arc<N>,
-//     has_next: AtomicBool,
-//     next: Option<Arc<State<N>>>,
-// }
-//
-// impl<N> State<N> {
-//     pub fn new(value: N) -> Arc<State<N>> {
-//         return Arc::new(State {
-//             ro: Arc::new(value),
-//             has_next: AtomicBool::new(false),
-//             next: None,
-//         });
-//     }
-//
-//     pub fn clone(state: &Arc<State<N>>) -> Arc<State<N>> {
-//         state.clone()
-//     }
-//
-//     pub fn update(&mut self, value: N) {
-//         self.next = Some(State::new(value));
-//         self.has_next
-//             .store(true, std::sync::atomic::Ordering::Relaxed)
-//     }
-// }
-//
-// impl<N> DerefMut for State<N> {
-//     fn deref_mut(&mut self) -> &mut Self::Target {
-//         todo!()
-//     }
-// }
-//
-// pub fn read<N>(mut state: Arc<State<N>>) -> Arc<N> {
-//     while state.has_next.load(std::sync::atomic::Ordering::Relaxed) {
-//         state = state.next.expect("expected next state, has_next flag set");
-//     }
-//     state.ro
-// }
-//
-#[derive(Debug, Serialize, Deserialize)]
+fn deserialize_specs<'de, D>(d: D) -> Result<urdf_rs::Robot, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value: String = Deserialize::deserialize(d).unwrap();
+
+    return urdf_rs::read_from_string(&value).map_err(|e| Error::custom(e));
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
-    Init { specs: Specs },
-    Move { position: [f32; 3] },
+    /// update current robot model
+    Init {
+        #[serde(deserialize_with = "deserialize_specs")]
+        specs: urdf_rs::Robot,
+    },
+    Move {
+        position: [f32; 3],
+    },
 }
 
 pub struct SimulationServer {
     listener: TcpListener,
 }
 
-type State = Arc<Atomic<Owned<Vec<JointValue>>>>;
+type State = Arc<Atomic<Vec<JointValue>>>;
 impl SimulationServer {
     pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<SimulationServer> {
         let listener = TcpListener::bind(addr).await?;
@@ -77,7 +53,7 @@ impl SimulationServer {
     }
 
     pub fn listen(mut self) -> Result<()> {
-        let state = Arc::new(Atomic::new(Owned::<Vec<JointValue>>::new(vec![])));
+        let state = Arc::new(Atomic::new(vec![]));
         let (cmd_tx, cmd_rx) = channel::<Command>(100);
 
         info!("Listening on: {:?}", self.listener.local_addr()?);
@@ -99,12 +75,15 @@ impl SimulationServer {
 
         // simulation should be always be running as when this is connected to a real robot it
         // should keep its physical sim in check and handle possible feedback
-        let mut simulation = Simulation::new();
+        let mut simulation = Simulation::new()?;
         simulation.run(cmd_rx, move |s| {
             let update = s.robot().joint_values();
             let update = Owned::new(update);
 
-            state.store(Owned::new(update), std::sync::atomic::Ordering::Relaxed);
+            let guard = pin();
+            let old = state.swap(update, std::sync::atomic::Ordering::SeqCst, &guard);
+            // deallocate old state
+            unsafe { guard.defer_destroy(old) }
         });
 
         Ok(())
