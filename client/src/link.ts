@@ -68,6 +68,7 @@ export class Link extends Mesh {
     );
     const dotMaterial = new PointsMaterial({ size: 50, color: 0x00ffff });
     this.midpoint = new Points(geometry, dotMaterial);
+    this.midpoint.add(new AxesHelper(100));
     this.add(this.midpoint);
   }
 }

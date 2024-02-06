@@ -1,42 +1,21 @@
-import { GUI } from "dat.gui";
 import {
   AxesHelper,
-  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
-  DoubleSide,
-  EdgesGeometry,
-  Group,
-  LineBasicMaterial,
-  LineSegments,
-  Matrix3,
   Mesh,
-  MeshBasicMaterial,
   Object3D,
-  PerspectiveCamera,
-  PlaneGeometry,
   Points,
   PointsMaterial,
-  Quaternion,
-  Scene,
   Vector3,
-  WebGLRenderer,
 } from "three";
 
-import {
-  Pivot,
-  PositionalVector,
-  pivot,
-  posvec3,
-  quat,
-  vec3,
-} from "./geometry";
+import { Transform, PositionalVector, vec3 } from "./geometry";
 
 export abstract class Joint extends Object3D {
   base: Mesh;
   attachment: Mesh;
-  jointPos: PositionalVector;
-  pivot: Pivot;
+  jointPos: Transform;
+  pivot: Transform;
 
   private dot?: Points;
   /** Join two 3d objects together with a joint using local space coordinates */
@@ -45,21 +24,23 @@ export abstract class Joint extends Object3D {
     base: Mesh,
     attachment: Mesh,
     /** position and direction in the local space of `base` */
-    jointPos?: PositionalVector,
+    jointPos?: Transform,
     /** position, direction and orientation in the local space of `attachment` */
-    pivot?: Pivot,
+    pivot?: Transform,
   ) {
     super();
 
-    jointPos = jointPos || new PositionalVector();
-    pivot = pivot || new Pivot();
+    jointPos = jointPos || new Transform();
+    // jointPos = jointPos || new PositionalVector();
+    pivot = pivot || new Transform();
 
     // go to local position of base and put joint there
-    jointPos.moveObject(this);
+    jointPos.updateObject(this);
+    // jointPos.moveObject(this);
     base.add(this);
 
     // translate attachment
-    pivot.point.negate();
+    // pivot.point.negate();
     pivot.updateObject(attachment);
     this.add(attachment);
 
@@ -85,6 +66,7 @@ export abstract class Joint extends Object3D {
     );
     const dotMaterial = new PointsMaterial({ size: 50, color: 0xffff00 });
     this.dot = new Points(geometry, dotMaterial);
+    this.dot.add(new AxesHelper(100));
     this.add(this.dot);
   }
 
@@ -104,9 +86,9 @@ export class SlidingJoint extends Joint {
     base: Mesh,
     attachment: Mesh,
     /** position and direction in the local space of `base` */
-    jointPos?: PositionalVector,
+    jointPos?: Transform,
     /** position, direction and orientation in the local space of `attachment` */
-    pivot?: Pivot,
+    pivot?: Transform,
   ) {
     super(name, base, attachment, jointPos, pivot);
     this.origin = this.position.clone();
@@ -115,22 +97,15 @@ export class SlidingJoint extends Joint {
     this.axis = vec3(0, 0, 1).applyQuaternion(this.quaternion);
     this.min = -100;
     this.max = 100;
-    this.maxVelocity = 10;
+    this.maxVelocity = 100;
   }
   setAxis(axis: Vector3): SlidingJoint {
     this.axis = axis;
     return this;
   }
   update(value: number) {
-    // let offset = this.axis.clone().multiplyScalar(this.value);
-    // console.log(offset);
-    // this.worldToLocal(offset);
-    // console.log(offset);
-    // offset.add(this.origin);
-    // this.position.copy(offset);
     this.translateOnAxis(this.axis, value - this.oldValue);
     this.oldValue = value;
-    // this.translateOnAxis(this.axis, this.value)
   }
   contraints(): [number, number] | null {
     return [this.min, this.max];
@@ -143,7 +118,7 @@ export class SlidingJoint extends Joint {
 }
 export class RotationalJoint extends Joint {
   override type: string = "rotational";
-  prevValue: number;
+  oldValue: number;
   value: number;
   min: number;
   max: number;
@@ -154,25 +129,25 @@ export class RotationalJoint extends Joint {
     base: Mesh,
     attachment: Mesh,
     /** position and direction in the local space of `base` */
-    jointPos?: PositionalVector,
+    jointPos?: Transform,
     /** position, direction and orientation in the local space of `attachment` */
-    pivot?: Pivot,
+    pivot?: Transform,
   ) {
     super(name, base, attachment, jointPos, pivot);
-    this.prevValue = 0;
+    this.oldValue = 0;
     this.value = 0;
     this.axis = vec3(0, 0, 1);
     this.min = -Math.PI;
     this.max = Math.PI;
-    this.maxVelocity = 10;
+    this.maxVelocity = 0.2;
   }
   setAxis(axis: Vector3): RotationalJoint {
     this.axis = axis;
     return this;
   }
   update(value: number) {
-    this.rotateOnAxis(this.axis, this.value - this.prevValue);
-    this.prevValue = this.value;
+    this.rotateOnAxis(this.axis, value - this.oldValue);
+    this.value = value;
   }
   contraints(): [number, number] | null {
     return [this.min, this.max];

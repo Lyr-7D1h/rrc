@@ -10,7 +10,7 @@ use nphysics3d::world::{DefaultGeometricalWorld, DefaultMechanicalWorld};
 
 use tokio::sync::mpsc::Receiver;
 
-use crate::robot::Robot;
+use crate::robot::{Robot, State};
 use crate::server::Command;
 
 pub struct Simulation {
@@ -20,31 +20,29 @@ pub struct Simulation {
     colliders: DefaultColliderSet<f32>,
     joint_constraints: DefaultJointConstraintSet<f32>,
     force_generators: DefaultForceGeneratorSet<f32>,
-    robot: Robot,
+    robot: Option<Robot>,
 }
 
 impl Simulation {
     pub fn new() -> Result<Simulation> {
-        let mut bodies = DefaultBodySet::new();
-        let mut colliders = DefaultColliderSet::new();
-
-        let robot = Robot::default(&mut bodies, &mut colliders);
-
         Ok(Simulation {
-            mechanical_world: DefaultMechanicalWorld::new(Vector3::new(0.0, 0.0, -9.81)),
+            mechanical_world: DefaultMechanicalWorld::new(Vector3::new(0.0, 0.0, 0.0)),
             geometrical_world: DefaultGeometricalWorld::new(),
 
             joint_constraints: DefaultJointConstraintSet::new(),
             force_generators: DefaultForceGeneratorSet::new(),
 
-            robot,
-            bodies,
-            colliders,
+            robot: None,
+            bodies: DefaultBodySet::new(),
+            colliders: DefaultColliderSet::new(),
         })
     }
 
-    pub fn robot(&self) -> &Robot {
-        &self.robot
+    pub fn robot_state(&self) -> Option<&State> {
+        if let Some(r) = &self.robot {
+            return Some(r.state(&self.bodies));
+        }
+        return None;
     }
 
     pub fn exec_command(&mut self, command: Command) {
@@ -53,18 +51,31 @@ impl Simulation {
                 match Robot::from_specs(&mut self.bodies, &mut self.colliders, specs) {
                     Ok(r) => {
                         info!("creating new robot from specs");
-                        self.robot = r;
+                        println!("{:?}", r.state(&self.bodies));
+                        self.robot = Some(r);
                     }
                     Err(e) => error!("failed to create robot: {e}"),
                 }
             }
-            Command::Move { position } => {
-                println!("{position:?}");
-                if let Err(e) =
-                    self.robot
-                        .move_ik(k::Vector3::new(position[0], position[1], position[2]))
-                {
+            Command::Ikmove { position } => {
+                info!("ikmove of robot to {position:?}");
+                if let Err(e) = self.robot.as_mut().unwrap().move_ik(k::Vector3::new(
+                    position[0],
+                    position[1],
+                    position[2],
+                )) {
                     error!("failed to move robot: {e}");
+                }
+            }
+            Command::Move { state } => {
+                info!("moving robot to {state:?}");
+                if let Err(e) = self
+                    .robot
+                    .as_mut()
+                    .unwrap()
+                    .move_to_state(&mut self.bodies, state)
+                {
+                    error!("failed to move robot to state: {e}");
                 }
             }
         }

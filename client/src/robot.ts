@@ -8,7 +8,7 @@ import {
 } from "three";
 import { Link } from "./link";
 
-import { pivot, posvec3, quat, vec3 } from "./geometry";
+import { transform,  quat, vec3 } from "./geometry";
 import { Joint, RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
 import { Connection } from "./connection";
 
@@ -29,40 +29,39 @@ export class RobotGUI {
         if (j instanceof RotationalJoint || j instanceof SlidingJoint) {
           return j.value;
         }
-        return null;
+        return 0;
       })
-      .filter((v) => v !== null) as number[];
     // deep copy
     this.virtual = Array.from(this.real);
 
-    let index = 0;
-    for (const joint of robot.joints) {
+    for (let i=0; i<robot.joints.length; i += 1) {
+      let joint = robot.joints[i];
       if (joint instanceof RotationalJoint) {
-        let name = joint.name.length > 0 ? joint.name : `rot joint ${index}`;
-        let j = index;
+        let name = joint.name.length > 0 ? joint.name : `rot joint ${i}`;
         jointFolder
-          .add(this.virtual, j, joint.min, joint.max)
+          .add(this.virtual, i, joint.min, joint.max)
           .name(name)
           .listen()
-          .onFinishChange(() => {
+          .onChange(() => {
             robot.move(this.virtual);
-            this.virtual[j] = this.real[j];
+          })
+          .onFinishChange(() => {
+            this.virtual[i] = this.real[i];
           });
-        index += 1;
       }
       if (joint instanceof SlidingJoint) {
         let name =
-          joint.name.length > 0 ? joint.name : `sliding joint ${index}`;
-        let j = index;
+          joint.name.length > 0 ? joint.name : `sliding joint ${i}`;
         jointFolder
-          .add(this.virtual, index, joint.min, joint.max)
+          .add(this.virtual, i, joint.min, joint.max)
           .name(name)
           .listen()
-          .onFinishChange(() => {
+          .onChange(() => {
             robot.move(this.virtual);
-            this.virtual[j] = this.real[j];
+          })
+          .onFinishChange(() => {
+            this.virtual[i] = this.real[i];
           });
-        index += 1;
       }
     }
     jointFolder.open();
@@ -94,8 +93,10 @@ export class RobotGUI {
 
   update(state: State) {
     console.log(state)
-    this.real = state;
-    this.virtual = Array.from(state);
+    if (state.length == this.real.length && state[0] !== null) {
+      this.real = state;
+      // this.virtual = state; 
+    }
   }
 
   gui(): GUI {
@@ -135,7 +136,7 @@ export class Robot extends Object3D {
     this.default();
   }
 
-  /** build the default robot */
+  /** build a default robot */
   default() {
     const width = 150;
     const lift = new Link(width, width, 2000);
@@ -145,39 +146,34 @@ export class Robot extends Object3D {
         "swing",
         this.base,
         lift,
-        posvec3(),
-        pivot(vec3(0, 0, -1000)),
+        transform(),
+        transform(vec3(0, 0, 1000)),
       ),
     );
 
     const arm = new Link(width, width, 700);
     this.addLink(arm);
-    // pos = new PositionalVector(new Vector3(-width/2, 0, 1000 - width / 2), new Vector3(1, 0, 0));
-    let jointPos = posvec3(
-      vec3(0, -width / 2, 1000 - width / 2),
-      vec3(1, 0, 0),
-    );
-    let attachmentPivot = pivot(vec3(0, 0, -(700 / 2)));
     this.addJoint(
-      new SlidingJoint("lift", lift, arm, jointPos, attachmentPivot)
-        .setAxis(vec3(0, -1, 0))
+      new SlidingJoint(
+        "lift",
+        lift,
+        arm,
+        transform(vec3(0, width / 2, 1000 - width / 2), quat(-1, 0, 0)),
+        transform(vec3(0, 0, 700 / 2)),
+      )
+        .setAxis(vec3(0, 1, 0))
         .setContraints(0, 1500),
     );
 
     const lowerArm = new Link(width, width, 750);
     this.addLink(lowerArm);
-    jointPos = posvec3(vec3(0, -width / 2, 750 / 2 - width / 2), vec3(1, 0, 0));
-    attachmentPivot = pivot(
-      vec3(0, width / 2, -750 / 2 + width / 2),
-      quat(-1, 0, 0),
-    );
     this.addJoint(
       new RotationalJoint(
         "elbow",
         arm,
         lowerArm,
-        jointPos,
-        attachmentPivot,
+        transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(-1, 0, 0)),
+        transform(vec3(0, -750 / 2 + width / 2, width / 2), quat(1, 0, 0)),
       ).setContraints(-Math.PI * 0.8, Math.PI * 0.8),
     );
 
@@ -188,32 +184,32 @@ export class Robot extends Object3D {
         "wrist",
         lowerArm,
         extension,
-        posvec3(vec3(0, -width / 2, 750 / 2 - width / 2), vec3(1, 0, 0)),
-        pivot(vec3(0, 0, -300 / 2)),
+        transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(-1, 0, 0)),
+        transform(vec3(0, 0, 300 / 2)),
       ),
     );
 
-    const extensionExtension = new Link(width, width, 50);
+    const extensionExtension = new Link(width, 50, width);
     this.addLink(extensionExtension);
     this.addJoint(
       new StaticJoint(
         "",
         extension,
         extensionExtension,
-        posvec3(vec3(0, width / 2, 0), vec3(1, 0, 0)),
-        pivot(vec3(0, width / 2, 0), quat(1, 0, 0)),
+        transform(vec3(0, -width / 2, 0), quat(1, 0, 0)),
+        transform(vec3(0, 0, width / 2)),
       ),
     );
 
-    const gripper = new Link(50, width, width - 25);
+    const gripper = new Link(width, 50, width - 25);
     this.addLink(gripper);
     this.addJoint(
       new SlidingJoint(
         "gripper",
         extensionExtension,
         gripper,
-        posvec3(vec3(0, -(width / 2 - 50 / 2), -50 / 2), vec3(0, 0, -1)),
-        pivot(vec3(0, 0, 62.5)),
+        transform(vec3(0, 50 / 2, width / 2 - 50 / 2), quat(-1, 0, 0)),
+        transform(vec3(0, 0, 62.5)),
       )
         .setAxis(vec3(0, 1, 0))
         .setContraints(0, 100),
@@ -238,13 +234,11 @@ export class Robot extends Object3D {
 
   /** update from state */
   update(state: State) {
-    for (const i in state) {
-      let value = state[i];
-      this.joints[i].update(value);
-    }
-    if (this.gui) {
-      this.gui.update(state);
-    }
+    console.log(state)
+    // if (this.gui) {
+    //   this.gui.update(state);
+    // }
+    this.joints.forEach((j, i) => j.update(state[i] as number))
   }
 
   buildGUI(gui: GUI): GUI {

@@ -4,12 +4,8 @@
   <origin xyz="0 0 0" rpy="0 0 0"/>
    
 </visual>
-<collision>
-  <origin xyz="0 0 0" rpy="0 0 0"/>
-   
-</collision>
-</link>
 
+</link>
 <link name="1">
 <visual>
   <origin xyz="0 0 1" rpy="0 0 0"/>
@@ -24,7 +20,6 @@
   </geometry> 
 </collision>
 </link>
-
 <link name="2">
 <visual>
   <origin xyz="0 0 0.35" rpy="0 0 0"/>
@@ -39,16 +34,15 @@
   </geometry> 
 </collision>
 </link>
-
 <link name="3">
 <visual>
-  <origin xyz="0 0.3 0.07500000000000005" rpy="-1.5707963267948966 0 0"/>
+  <origin xyz="0 -0.3 0.075" rpy="1.5707963057214724 0 0"/>
   <geometry>
     <box size="0.15 0.15 0.75" />
   </geometry> 
 </visual>
 <collision>
-  <origin xyz="0 0.3 0.07500000000000005" rpy="-1.5707963267948966 0 0"/>
+  <origin xyz="0 -0.3 0.075" rpy="1.5707963057214724 0 0"/>
   <geometry>
     <box size="0.15 0.15 0.75" />
   </geometry> 
@@ -70,29 +64,29 @@
 </link>
 <link name="5">
 <visual>
-  <origin xyz="0 -1.4210854715202004e-17 -0.075" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 0 0.075" rpy="0 0 0"/>
   <geometry>
-    <box size="0.15 0.15 0.05" />
+    <box size="0.15 0.05 0.15" />
   </geometry> 
 </visual>
 <collision>
-  <origin xyz="0 -1.4210854715202004e-17 -0.075" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 0 0.075" rpy="0 0 0"/>
   <geometry>
-    <box size="0.15 0.15 0.05" />
+    <box size="0.15 0.05 0.15" />
   </geometry> 
 </collision>
 </link>
 <link name="6">
 <visual>
-  <origin xyz="0 0 -0.0625" rpy="0 0 0"/>
+  <origin xyz="0 0 0.0625" rpy="0 0 0"/>
   <geometry>
-    <box size="0.05 0.15 0.125" />
+    <box size="0.15 0.05 0.125" />
   </geometry> 
 </visual>
 <collision>
-  <origin xyz="0 0 -0.0625" rpy="0 0 0"/>
+  <origin xyz="0 0 0.0625" rpy="0 0 0"/>
   <geometry>
-    <box size="0.05 0.15 0.125" />
+    <box size="0.15 0.05 0.125" />
   </geometry> 
 </collision>
 </link>
@@ -102,40 +96,33 @@
   <parent link="0" />
   <child link="1" />
   <axis xyz="0 0 1" />
-  <limit lower="-3.141592653589793" upper="3.141592653589793" effort="0" velocity="10"/>
+  <limit lower="-3.141592653589793" upper="3.141592653589793" effort="100" velocity="10"/>
 </joint>
 <joint name="lift" type="prismatic">
-  <origin xyz="0 -0.075 1" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 0.075 1.925" rpy="-1.5707963057214724 0 0"/>
   <parent link="1" />
   <child link="2" />
-  <axis xyz="0 0 -1" />
-  <limit lower="0" upper="1500" effort="0" velocity="10"/>
+  <axis xyz="0 1 0" />
+  <limit lower="0" upper="1.5" effort="100" velocity="10"/>
 </joint>
 <joint name="elbow" type="revolute">
-  <origin xyz="0 -0.075 0.3" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 0.075 0.65" rpy="-1.5707963057214724 0 0"/>
   <parent link="2" />
   <child link="3" />
   <axis xyz="0 0 1" />
-  <limit lower="-2.5132741228718345" upper="2.5132741228718345" effort="0" velocity="10"/>
+  <limit lower="-2.5132741228718345" upper="2.5132741228718345" effort="100" velocity="10"/>
 </joint>
 <joint name="wrist" type="revolute">
-  <origin xyz="0 -0.075 0.3" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 -0.6 0.15000000000000005" rpy="-1.1102230246251565e-16 0 0"/>
   <parent link="3" />
   <child link="4" />
   <axis xyz="0 0 1" />
-  <limit lower="-3.141592653589793" upper="3.141592653589793" effort="0" velocity="10"/>
+  <limit lower="-3.141592653589793" upper="3.141592653589793" effort="100" velocity="10"/>
 </joint>
 <joint name="" type="fixed">
-  <origin xyz="0 0.075 0" rpy="1.5707963267948966 0 0"/>
+  <origin xyz="0 -0.075 0.15" rpy="1.5707963057214724 0 0"/>
   <parent link="4" />
   <child link="5" />
-</joint>
-<joint name="gripper" type="prismatic">
-  <origin xyz="0 -0.05 -0.025" rpy="0 0 0"/>
-  <parent link="5" />
-  <child link="6" />
-  <axis xyz="0 1 0" />
-  <limit lower="0" upper="100" effort="0" velocity="10"/>
 </joint>
 </robot> 
 

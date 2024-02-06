@@ -1,6 +1,8 @@
 import { vec3 } from "./geometry";
 import { Robot } from "./robot";
 import { RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
+import { Vector3 } from "three";
+import { Link } from "./link";
 
 export function robotToUrdf(robot: Robot): string {
   // https://wiki.ros.org/urdf/XML/link
@@ -24,10 +26,14 @@ export function robotToUrdf(robot: Robot): string {
   <origin xyz="${xyz}" rpy="${rpy}"/>
   ${geometry} 
 </visual>
-<collision>
+${
+  typeof link.depth !== "undefined"
+    ? `<collision>
   <origin xyz="${xyz}" rpy="${rpy}"/>
   ${geometry} 
-</collision>
+</collision>`
+    : ""
+}
 </link>`;
     })
     .join("\n");
@@ -35,10 +41,19 @@ export function robotToUrdf(robot: Robot): string {
   // https://wiki.ros.org/urdf/XML/joint
   let joints = robot.joints
     .map((joint) => {
-      let normal = vec3(0, 0, 1).applyQuaternion(joint.quaternion);
+      let parent = robot.links.find((l) => l.name === joint.base.name) as Link;
+
+      let normal = vec3(0, 0, 1)
+        .applyQuaternion(parent.quaternion)
+        .applyQuaternion(joint.quaternion);
       let rpy = `${Math.asin(-normal.y)} ${Math.atan2(normal.x, normal.z)} 0`;
-      let xyz = `${joint.position.x / 1000} ${joint.position.y / 1000} ${joint.position.z / 1000}`;
-      console.log(xyz);
+
+      // get the joint position relative to the joint position of the parent
+      let position = joint.position
+        .clone()
+        .applyQuaternion(parent.quaternion)
+        .add(parent.position);
+      let xyz = `${position.x / 1000} ${position.y / 1000} ${position.z / 1000}`;
 
       if (joint instanceof RotationalJoint) {
         return `<joint name="${joint.name}" type="revolute">
@@ -46,7 +61,7 @@ export function robotToUrdf(robot: Robot): string {
   <parent link="${joint.base.name}" />
   <child link="${joint.attachment.name}" />
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
-  <limit lower="${joint.min}" upper="${joint.max}" effort="0" velocity="${joint.maxVelocity}"/>
+  <limit lower="${joint.min}" upper="${joint.max}" effort="100" velocity="${joint.maxVelocity}"/>
 </joint>`;
       } else if (joint instanceof SlidingJoint) {
         return `<joint name="${joint.name}" type="prismatic">
@@ -54,7 +69,7 @@ export function robotToUrdf(robot: Robot): string {
   <parent link="${joint.base.name}" />
   <child link="${joint.attachment.name}" />
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
-  <limit lower="${joint.min}" upper="${joint.max}" effort="0" velocity="${joint.maxVelocity}"/>
+  <limit lower="${joint.min / 1000}" upper="${joint.max / 1000}" effort="100" velocity="${joint.maxVelocity / 1000}"/>
 </joint>`;
       } else if (joint instanceof StaticJoint) {
         return `<joint name="${joint.name}" type="fixed">

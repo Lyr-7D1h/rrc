@@ -36,6 +36,9 @@ pub enum Command {
         specs: urdf_rs::Robot,
     },
     Move {
+        state: Vec<f32>,
+    },
+    Ikmove {
         position: [f32; 3],
     },
 }
@@ -76,13 +79,14 @@ impl SimulationServer {
         // should keep its physical sim in check and handle possible feedback
         let mut simulation = Simulation::new()?;
         simulation.run(cmd_rx, move |s| {
-            let update = s.robot().state();
-            let update = Owned::new(update);
+            if let Some(update) = s.robot_state() {
+                let update = Owned::new(update.clone());
 
-            let guard = pin();
-            let old = state.swap(update, std::sync::atomic::Ordering::SeqCst, &guard);
-            // deallocate old state
-            unsafe { guard.defer_destroy(old) }
+                let guard = pin();
+                let old = state.swap(update, std::sync::atomic::Ordering::SeqCst, &guard);
+                // deallocate old state
+                unsafe { guard.defer_destroy(old) }
+            }
         });
 
         Ok(())
@@ -106,6 +110,7 @@ impl SimulationServer {
         info!("New WebSocket connection: {}", addr);
 
         loop {
+            // parse and forward commands from stream to simulation
             if let Some(msg) = ws_stream.try_next().now_or_never() {
                 if let Some(message) = msg.context("error occurred while reading from stream")? {
                     let command = match message {

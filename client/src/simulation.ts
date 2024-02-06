@@ -59,8 +59,8 @@ export class Simulation {
 
     this.addControls();
 
-    const origin = new AxesHelper(200);
-    this.scene.add(origin);
+    // const origin = new AxesHelper(200);
+    // this.scene.add(origin);
 
     this.robot = new Robot(connection);
     this.scene.add(this.robot);
@@ -106,7 +106,7 @@ export class Simulation {
   /** Build the initial state of the simulation */
   async init() {
     let specs = robotToUrdf(this.robot);
-    console.log(specs);
+    // console.log(specs);
     this.connection.send({ type: "init", specs });
 
     this.connection.on("message", (state) => {
