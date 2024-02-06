@@ -1,11 +1,11 @@
 use std::{fmt::Write, ops::Deref, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
-use crossbeam::epoch::{pin, Atomic, Owned, Shared};
+use crossbeam::epoch::{pin, Atomic, Owned};
 use serde::{de::Error, Deserialize, Deserializer};
 use tokio_tungstenite::tungstenite::{self, Message};
 
-use crate::robot::JointValue;
+use crate::robot::State;
 
 use super::simulation::Simulation;
 
@@ -44,7 +44,6 @@ pub struct SimulationServer {
     listener: TcpListener,
 }
 
-type State = Arc<Atomic<Vec<JointValue>>>;
 impl SimulationServer {
     pub async fn bind<A: ToSocketAddrs>(addr: A) -> Result<SimulationServer> {
         let listener = TcpListener::bind(addr).await?;
@@ -77,7 +76,7 @@ impl SimulationServer {
         // should keep its physical sim in check and handle possible feedback
         let mut simulation = Simulation::new()?;
         simulation.run(cmd_rx, move |s| {
-            let update = s.robot().joint_values();
+            let update = s.robot().state();
             let update = Owned::new(update);
 
             let guard = pin();
@@ -92,7 +91,7 @@ impl SimulationServer {
     async fn session(
         &mut self,
         stream: &mut TcpStream,
-        state: State,
+        state: Arc<Atomic<State>>,
         cmd_tx: Sender<Command>,
     ) -> Result<()> {
         let addr = stream

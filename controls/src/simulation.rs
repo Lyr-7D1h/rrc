@@ -25,8 +25,10 @@ pub struct Simulation {
 
 impl Simulation {
     pub fn new() -> Result<Simulation> {
-        let bodies = DefaultBodySet::new();
-        let colliders = DefaultColliderSet::new();
+        let mut bodies = DefaultBodySet::new();
+        let mut colliders = DefaultColliderSet::new();
+
+        let robot = Robot::default(&mut bodies, &mut colliders);
 
         Ok(Simulation {
             mechanical_world: DefaultMechanicalWorld::new(Vector3::new(0.0, 0.0, -9.81)),
@@ -35,9 +37,9 @@ impl Simulation {
             joint_constraints: DefaultJointConstraintSet::new(),
             force_generators: DefaultForceGeneratorSet::new(),
 
+            robot,
             bodies,
             colliders,
-            robot: Robot::default(),
         })
     }
 
