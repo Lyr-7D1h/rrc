@@ -1,7 +1,6 @@
 import { vec3 } from "./geometry";
 import { Robot } from "./robot";
 import { RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
-import { Vector3 } from "three";
 import { Link } from "./link";
 
 export function robotToUrdf(robot: Robot): string {
@@ -56,20 +55,28 @@ ${
       let xyz = `${position.x / 1000} ${position.y / 1000} ${position.z / 1000}`;
 
       if (joint instanceof RotationalJoint) {
+        // from degrees to rad
+        let lower = (joint.min * 180) / Math.PI;
+        let upper = (joint.max * 180) / Math.PI;
+        let velocity = (joint.maxVelocity * 180) / Math.PI;
         return `<joint name="${joint.name}" type="revolute">
   <origin xyz="${xyz}" rpy="${rpy}"/>
   <parent link="${joint.base.name}" />
   <child link="${joint.attachment.name}" />
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
-  <limit lower="${joint.min}" upper="${joint.max}" effort="100" velocity="${joint.maxVelocity}"/>
+  <limit lower="${lower}" upper="${upper}" effort="100" velocity="${velocity}"/>
 </joint>`;
       } else if (joint instanceof SlidingJoint) {
+        // from mm to m
+        let lower = joint.min / 1000;
+        let upper = joint.max / 1000;
+        let velocity = joint.maxVelocity / 1000;
         return `<joint name="${joint.name}" type="prismatic">
   <origin xyz="${xyz}" rpy="${rpy}"/>
   <parent link="${joint.base.name}" />
   <child link="${joint.attachment.name}" />
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
-  <limit lower="${joint.min / 1000}" upper="${joint.max / 1000}" effort="100" velocity="${joint.maxVelocity / 1000}"/>
+  <limit lower="${lower}" upper="${upper}" effort="100" velocity="${velocity}"/>
 </joint>`;
       } else if (joint instanceof StaticJoint) {
         return `<joint name="${joint.name}" type="fixed">

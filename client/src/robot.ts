@@ -8,10 +8,11 @@ import {
 } from "three";
 import { Link } from "./link";
 
-import { transform,  quat, vec3 } from "./geometry";
+import { transform, quat, vec3 } from "./geometry";
 import { Joint, RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
 import { Connection } from "./connection";
 
+/** The current state of the joints, always in degrees and mm's */
 export type State = number[];
 
 export class RobotGUI {
@@ -24,44 +25,42 @@ export class RobotGUI {
     this.folder = gui.addFolder("Robot");
     const jointFolder = this.folder.addFolder("joints");
 
-    this.real = robot.joints
-      .map((j) => {
-        if (j instanceof RotationalJoint || j instanceof SlidingJoint) {
-          return j.value;
-        }
-        return 0;
-      })
+    this.real = robot.state;
     // deep copy
     this.virtual = Array.from(this.real);
 
-    for (let i=0; i<robot.joints.length; i += 1) {
-      let joint = robot.joints[i];
+    let index = 0;
+    for (let i = 0; i < robot.joints.length; i += 1) {
+      const joint = robot.joints[i];
       if (joint instanceof RotationalJoint) {
-        let name = joint.name.length > 0 ? joint.name : `rot joint ${i}`;
+        const name = joint.name.length > 0 ? joint.name : `rot joint ${i}`;
+        const j = index;
         jointFolder
-          .add(this.virtual, i, joint.min, joint.max)
+          .add(this.virtual, j, joint.min, joint.max)
           .name(name)
           .listen()
           .onChange(() => {
             robot.move(this.virtual);
           })
           .onFinishChange(() => {
-            this.virtual[i] = this.real[i];
+            this.virtual[j] = this.real[j];
           });
+        index += 1;
       }
       if (joint instanceof SlidingJoint) {
-        let name =
-          joint.name.length > 0 ? joint.name : `sliding joint ${i}`;
+        const name = joint.name.length > 0 ? joint.name : `sliding joint ${i}`;
+        const j = index;
         jointFolder
-          .add(this.virtual, i, joint.min, joint.max)
+          .add(this.virtual, j, joint.min, joint.max)
           .name(name)
           .listen()
           .onChange(() => {
             robot.move(this.virtual);
           })
           .onFinishChange(() => {
-            this.virtual[i] = this.real[i];
+            this.virtual[j] = this.real[j];
           });
+        index += 1;
       }
     }
     jointFolder.open();
@@ -92,10 +91,11 @@ export class RobotGUI {
   }
 
   update(state: State) {
-    console.log(state)
     if (state.length == this.real.length && state[0] !== null) {
       this.real = state;
-      // this.virtual = state; 
+      for (const i in state) {
+        this.virtual[i] = state[i];
+      }
     }
   }
 
@@ -111,6 +111,7 @@ export class Robot extends Object3D {
   links: Link[];
   joints: Joint[];
   private gui: RobotGUI | null;
+  state: State;
 
   constructor(connection: Connection) {
     super();
@@ -134,6 +135,15 @@ export class Robot extends Object3D {
     this.addLink(this.base);
 
     this.default();
+    // initialize state as zero
+    this.state = this.joints
+      .map((j) => {
+        if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+          return 0;
+        }
+        return null;
+      })
+      .filter((j) => j !== null) as State;
   }
 
   /** build a default robot */
@@ -174,7 +184,7 @@ export class Robot extends Object3D {
         lowerArm,
         transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(-1, 0, 0)),
         transform(vec3(0, -750 / 2 + width / 2, width / 2), quat(1, 0, 0)),
-      ).setContraints(-Math.PI * 0.8, Math.PI * 0.8),
+      ).setContraints(-150, 150),
     );
 
     const extension = new Link(width, width, 300);
@@ -216,6 +226,23 @@ export class Robot extends Object3D {
     );
   }
 
+  limits() {
+    return this.joints
+      .map((j, i) => {
+        if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+          return {
+            index: i,
+            acceleration: j.maxAcceleration,
+            velocity: j.maxVelocity,
+            min: j.min,
+            max: j.max,
+          };
+        }
+        return null;
+      })
+      .filter((l) => l !== null);
+  }
+
   addLink(link: Link) {
     link.name = this.links.length.toString();
     this.links.push(link);
@@ -234,11 +261,11 @@ export class Robot extends Object3D {
 
   /** update from state */
   update(state: State) {
-    console.log(state)
-    // if (this.gui) {
-    //   this.gui.update(state);
-    // }
-    this.joints.forEach((j, i) => j.update(state[i] as number))
+    if (this.gui) {
+      this.gui.update(state);
+    }
+    this.joints.forEach((j, i) => j.update(state[i] as number));
+    this.state = state;
   }
 
   buildGUI(gui: GUI): GUI {

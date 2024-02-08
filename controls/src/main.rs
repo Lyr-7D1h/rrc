@@ -10,5 +10,6 @@ async fn main() {
         .await
         .expect(&format!("failed to bind to {addr}"))
         .listen()
+        .await
         .unwrap();
 }

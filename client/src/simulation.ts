@@ -44,7 +44,7 @@ export class Simulation {
       200000,
     );
     this.camera.up.set(0, 0, 1);
-    this.camera.position.x = 0;
+    this.camera.position.x = 4000;
     this.camera.position.y = 4000;
     this.camera.position.z = 4000;
 
@@ -105,9 +105,9 @@ export class Simulation {
 
   /** Build the initial state of the simulation */
   async init() {
-    let specs = robotToUrdf(this.robot);
-    // console.log(specs);
-    this.connection.send({ type: "init", specs });
+    let urdf = robotToUrdf(this.robot);
+    let limits = this.robot.limits();
+    this.connection.send({ type: "init", urdf, limits });
 
     this.connection.on("message", (state) => {
       this.robot.update(state as State);

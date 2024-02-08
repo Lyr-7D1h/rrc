@@ -9,7 +9,7 @@ import {
   Vector3,
 } from "three";
 
-import { Transform, PositionalVector, vec3 } from "./geometry";
+import { Transform, vec3 } from "./geometry";
 
 export abstract class Joint extends Object3D {
   base: Mesh;
@@ -75,11 +75,14 @@ export abstract class Joint extends Object3D {
 export class SlidingJoint extends Joint {
   override type: string = "sliding";
   origin: Vector3;
-  oldValue: number;
   value: number;
+
+  // limits in mm
   min: number;
   max: number;
   maxVelocity: number;
+  maxAcceleration: number;
+
   axis: Vector3;
   constructor(
     name: string,
@@ -92,20 +95,20 @@ export class SlidingJoint extends Joint {
   ) {
     super(name, base, attachment, jointPos, pivot);
     this.origin = this.position.clone();
-    this.oldValue = 0;
     this.value = 0;
     this.axis = vec3(0, 0, 1).applyQuaternion(this.quaternion);
     this.min = -100;
     this.max = 100;
     this.maxVelocity = 100;
+    this.maxAcceleration = 10;
   }
   setAxis(axis: Vector3): SlidingJoint {
     this.axis = axis;
     return this;
   }
   update(value: number) {
-    this.translateOnAxis(this.axis, value - this.oldValue);
-    this.oldValue = value;
+    this.translateOnAxis(this.axis, value - this.value);
+    this.value = value;
   }
   contraints(): [number, number] | null {
     return [this.min, this.max];
@@ -120,9 +123,13 @@ export class RotationalJoint extends Joint {
   override type: string = "rotational";
   oldValue: number;
   value: number;
+
+  // limits in degrees
   min: number;
   max: number;
   maxVelocity: number;
+  maxAcceleration: number;
+
   axis: Vector3;
   constructor(
     name: string,
@@ -137,17 +144,20 @@ export class RotationalJoint extends Joint {
     this.oldValue = 0;
     this.value = 0;
     this.axis = vec3(0, 0, 1);
-    this.min = -Math.PI;
-    this.max = Math.PI;
-    this.maxVelocity = 0.2;
+    this.min = -180;
+    this.max = 180;
+    this.maxVelocity = 20;
+    this.maxAcceleration = 1;
   }
   setAxis(axis: Vector3): RotationalJoint {
     this.axis = axis;
     return this;
   }
-  update(value: number) {
-    this.rotateOnAxis(this.axis, value - this.oldValue);
-    this.value = value;
+  update(newValue: number) {
+    // value -= this.oldValue;
+    // console.log(value, this.oldValue);
+    this.rotateOnAxis(this.axis, ((newValue - this.value) * Math.PI) / 180);
+    this.value = newValue;
   }
   contraints(): [number, number] | null {
     return [this.min, this.max];

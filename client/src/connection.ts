@@ -28,7 +28,8 @@ export async function connect(addr: string): Promise<Connection> {
 export type Command =
   | {
       type: "init";
-      specs: unknown;
+      urdf: unknown;
+      limits: unknown;
     }
   | { type: "move"; state: State }
   | { type: "ikmove"; position: number[] };

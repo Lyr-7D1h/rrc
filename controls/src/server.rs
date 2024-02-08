@@ -27,13 +27,23 @@ where
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Limits {
+    pub index: usize,
+    pub acceleration: f32,
+    pub velocity: f32,
+    pub min: f32,
+    pub max: f32
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum Command {
     /// update current robot model
     Init {
         #[serde(deserialize_with = "deserialize_specs")]
-        specs: urdf_rs::Robot,
+        urdf: urdf_rs::Robot,
+        limits: Vec<Limits>,
     },
     Move {
         state: Vec<f32>,
@@ -54,7 +64,7 @@ impl SimulationServer {
         return Ok(SimulationServer { listener });
     }
 
-    pub fn listen(mut self) -> Result<()> {
+    pub async fn listen(mut self) -> Result<()> {
         let state = Arc::new(Atomic::new(vec![]));
         let (cmd_tx, cmd_rx) = channel::<Command>(100);
 
@@ -78,16 +88,18 @@ impl SimulationServer {
         // simulation should be always be running as when this is connected to a real robot it
         // should keep its physical sim in check and handle possible feedback
         let mut simulation = Simulation::new()?;
-        simulation.run(cmd_rx, move |s| {
-            if let Some(update) = s.robot_state() {
-                let update = Owned::new(update.clone());
+        simulation
+            .run(cmd_rx, move |s| {
+                if let Some(update) = s.robot_state() {
+                    let update = Owned::new(update.clone());
 
-                let guard = pin();
-                let old = state.swap(update, std::sync::atomic::Ordering::SeqCst, &guard);
-                // deallocate old state
-                unsafe { guard.defer_destroy(old) }
-            }
-        });
+                    let guard = pin();
+                    let old = state.swap(update, std::sync::atomic::Ordering::SeqCst, &guard);
+                    // deallocate old state
+                    unsafe { guard.defer_destroy(old) }
+                }
+            })
+            .await;
 
         Ok(())
     }
@@ -113,7 +125,7 @@ impl SimulationServer {
             // parse and forward commands from stream to simulation
             if let Some(msg) = ws_stream.try_next().now_or_never() {
                 if let Some(message) = msg.context("error occurred while reading from stream")? {
-                    let command = match message {
+                    let command: Command = match message {
                         Message::Text(text) => {
                             serde_json::from_str(&text).context("failed to parse command")?
                         }
