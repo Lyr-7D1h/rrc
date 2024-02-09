@@ -264,7 +264,15 @@ export class Robot extends Object3D {
     if (this.gui) {
       this.gui.update(state);
     }
-    this.joints.forEach((j, i) => j.update(state[i] as number));
+
+    // ignore static joints
+    let i = 0;
+    for (const j of this.joints) {
+      if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+        j.update(state[i] as number);
+        i += 1;
+      }
+    }
     this.state = state;
   }
 

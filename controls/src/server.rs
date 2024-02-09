@@ -29,10 +29,10 @@ where
 #[derive(Debug, Deserialize)]
 pub struct Limits {
     pub index: usize,
-    pub acceleration: f32,
-    pub velocity: f32,
-    pub min: f32,
-    pub max: f32
+    pub acceleration: f64,
+    pub velocity: f64,
+    pub min: f64,
+    pub max: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,9 +44,10 @@ pub enum Command {
         #[serde(deserialize_with = "deserialize_specs")]
         urdf: urdf_rs::Robot,
         limits: Vec<Limits>,
+        state: State,
     },
     Move {
-        state: Vec<f32>,
+        state: State,
     },
     Ikmove {
         position: [f32; 3],
@@ -154,7 +155,6 @@ impl SimulationServer {
                 .await
                 .context("failed to send update")?;
 
-            // TODO ensure update frequency makes for smooth graphical display
             // Wait ~1/60 second before sending new update
             sleep(Duration::from_millis(16));
         }

@@ -30,6 +30,7 @@ export type Command =
       type: "init";
       urdf: unknown;
       limits: unknown;
+      state: State;
     }
   | { type: "move"; state: State }
   | { type: "ikmove"; position: number[] };

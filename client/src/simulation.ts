@@ -107,9 +107,18 @@ export class Simulation {
   async init() {
     let urdf = robotToUrdf(this.robot);
     let limits = this.robot.limits();
-    this.connection.send({ type: "init", urdf, limits });
+    this.connection.send({
+      type: "init",
+      urdf,
+      limits,
+      state: this.robot.state,
+    });
 
     this.connection.on("message", (state) => {
+      // before init it will send empty states
+      if ((state as State).length === 0) {
+        return;
+      }
       this.robot.update(state as State);
     });
 

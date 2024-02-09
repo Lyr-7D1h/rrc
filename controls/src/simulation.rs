@@ -33,10 +33,13 @@ impl Simulation {
 
     pub fn exec_command(&mut self, command: Command) {
         match command {
-            Command::Init { urdf, limits } => match Robot::from_specs(urdf, limits) {
+            Command::Init {
+                urdf,
+                limits,
+                state,
+            } => match Robot::from_specs(urdf, limits, state) {
                 Ok(r) => {
                     info!("creating new robot from specs");
-                    println!("{:?}", r.state());
                     self.robot = Some(r);
                 }
                 Err(e) => error!("failed to create robot: {e}"),
