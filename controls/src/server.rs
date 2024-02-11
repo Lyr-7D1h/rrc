@@ -47,6 +47,7 @@ pub enum Command {
         state: State,
     },
     Move {
+        // TODO: only send a single joint you want to change, otherwise it will get old state data
         state: State,
     },
     Ikmove {

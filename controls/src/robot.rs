@@ -2,7 +2,7 @@ use std::{any::TypeId, borrow::Borrow};
 
 use anyhow::{anyhow, Context, Result};
 
-use k::{nalgebra::ComplexField, Constraints, InverseKinematicsSolver, SerialChain, Translation3};
+// use k::{nalgebra::ComplexField, Constraints, InverseKinematicsSolver, SerialChain, Translation3};
 
 use log::info;
 use nphysics3d::{
@@ -150,10 +150,11 @@ impl Robot {
             let sign = d.signum();
             let d = d.abs();
 
+            let v_sign = v.signum();
             let v = v.abs();
 
             // if not moving and at desired destination skip
-            if d < 0.000001 && v < 0.000001 {
+            if d < 0.000001 && v.abs() < 0.000001 {
                 // if within a fair amount of rounding error reset everything
                 self.accelerations[i] = 0.0;
                 self.velocities[i] = 0.0;
@@ -170,23 +171,19 @@ impl Robot {
             // v of next time sample is above v_max
             } else if v + a_max * t > v_max {
                 // acceleration needed to go to v_max next step
-                (v_max - v) / t
+                sign * ((v_max - v) / t)
             } else {
-                a_max
+                sign * a_max
             };
 
-            let v_expected = v + a_o * t;
+            let v_expected = v + a_o.abs() * t;
             let v_break = -a_max * t + (2.0 * d * a_max).sqrt();
             if v_break < v_expected {
                 // next time step is beyond breaking point
 
                 // acceleration needed to go to zero while compensating for undershooting distance
                 // a slope that will create a same distance as the slope for breaking point slope
-                a_o = -(v.powi(2)) / (2.0 * d);
-
-                if a_o.abs() > a_max {
-                    a_o = -a_max;
-                }
+                a_o = v_sign * -(v.powi(2)) / (2.0 * d);
             }
 
             // ensure limit to direcion of a
@@ -194,8 +191,16 @@ impl Robot {
                 a_o = a_o.signum() * a_max;
             }
 
-            self.accelerations[i] = sign * a_o;
-            println!("velocity={} acc={a_o} dist={} ", v, sign * d,);
+            self.accelerations[i] = a_o;
+            // println!(
+            //     "velocity={} acc={} dist={} {} {}",
+            //     v_sign * v,
+            //     // v,
+            //     self.accelerations[i],
+            //     sign * d,
+            //     v_break,
+            //     v_expected
+            // );
         }
     }
 }

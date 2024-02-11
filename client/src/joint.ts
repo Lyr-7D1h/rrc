@@ -154,8 +154,6 @@ export class RotationalJoint extends Joint {
     return this;
   }
   update(newValue: number) {
-    // value -= this.oldValue;
-    // console.log(value, this.oldValue);
     this.rotateOnAxis(this.axis, ((newValue - this.value) * Math.PI) / 180);
     this.value = newValue;
   }

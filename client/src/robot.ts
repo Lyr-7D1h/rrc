@@ -253,6 +253,7 @@ export class Robot extends Object3D {
   }
 
   move(state: State) {
+    console.log(state)
     this.connection.send({
       type: "move",
       state,
