@@ -131,6 +131,8 @@ impl Robot {
         return &self.state;
     }
 
+    /// update a joint to go from a to b using trapezoidal motion planning given max acceleration
+    /// and velocity
     pub fn update(&mut self, dt_ms: f64) {
         // time in seconds
         let t = dt_ms / 1000.0;
@@ -178,7 +180,7 @@ impl Robot {
             if v_break < v_expected {
                 // next time step is beyond breaking point
 
-                // acceleration needed to go to zero while compensating for undershooting distance 
+                // acceleration needed to go to zero while compensating for undershooting distance
                 // a slope that will create a same distance as the slope for breaking point slope
                 a_o = -(v.powi(2)) / (2.0 * d);
 
