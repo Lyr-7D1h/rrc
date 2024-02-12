@@ -2,13 +2,13 @@ use std::time::Duration;
 
 use anyhow::Result;
 use log::{error, info};
-use nphysics3d::force_generator::DefaultForceGeneratorSet;
-use nphysics3d::joint::DefaultJointConstraintSet;
 
-use nphysics3d::nalgebra::Vector3;
 
-use nphysics3d::object::{DefaultBodySet, DefaultColliderSet};
-use nphysics3d::world::{DefaultGeometricalWorld, DefaultMechanicalWorld};
+
+
+
+
+
 
 use tokio::sync::mpsc::Receiver;
 
@@ -45,7 +45,6 @@ impl Simulation {
                 Err(e) => error!("failed to create robot: {e}"),
             },
             Command::Ikmove { position } => {
-                info!("ikmove of robot to {position:?}");
                 if let Err(e) = self.robot.as_mut().unwrap().move_ik(k::Vector3::new(
                     position[0],
                     position[1],
@@ -55,7 +54,6 @@ impl Simulation {
                 }
             }
             Command::Move { state } => {
-                info!("moving robot to {state:?}");
                 if let Err(e) = self.robot.as_mut().unwrap().move_to_state(state) {
                     error!("failed to move robot to state: {e}");
                 }

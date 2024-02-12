@@ -51,7 +51,7 @@ pub enum Command {
         state: State,
     },
     Ikmove {
-        position: [f32; 3],
+        position: [f64; 3],
     },
 }
 
