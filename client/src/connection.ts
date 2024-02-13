@@ -1,68 +1,71 @@
-import { State } from "./robot";
-import { error } from "./util";
+import { type State } from './robot'
 
 /** Connect to socket in a blocking manner erroring in case of timeout or error */
 export async function connect(addr: string): Promise<Connection> {
-  return new Promise((resolve, reject) => {
-    const connection = new Connection(addr);
+  return await new Promise((resolve, reject) => {
+    const connection = new Connection(addr)
 
-    let returned = false;
-    connection.on("error", () => {
-      returned = true;
-      reject(`connection to ${addr} failed`);
-    });
+    let returned = false
+    connection.on('error', () => {
+      returned = true
+      reject(new Error(`connection to ${addr} failed`))
+    })
 
-    connection.on("open", () => {
-      returned = true;
-      resolve(connection);
-    });
+    connection.on('open', () => {
+      returned = true
+      resolve(connection)
+    })
 
     setTimeout(() => {
-      if (returned === false) {
-        return reject(`connection timed out`);
+      if (!returned) {
+        reject(new Error('connection timed out'))
       }
-    }, 8000);
-  });
+    }, 8000)
+  })
 }
 
 export type Command =
   | {
-      type: "init";
-      urdf: unknown;
-      limits: unknown;
-      state: State;
+      type: 'init'
+      urdf: unknown
+      limits: unknown
+      state: State
     }
-  | { type: "move"; state: State }
-  | { type: "ikmove"; position: number[] };
+  | { type: 'move'; state: State }
+  | { type: 'ikmove'; position: number[] }
 
 export class Connection {
-  private socket: WebSocket;
+  private readonly socket: WebSocket
 
   constructor(addr: string) {
-    this.socket = new WebSocket(`ws://${addr}`);
+    this.socket = new WebSocket(`ws://${addr}`)
   }
 
-  on(type: "message", cb: (data: Object) => void): void;
-  on(type: "message" | "open" | "error", cb: (event: Event) => void) {
+  on(type: 'message', cb: (data: unknown) => void): void
+  on(type: 'message' | 'open' | 'error', cb: (event: Event) => void) {
     switch (type) {
-      case "message":
-        this.socket.addEventListener("message", (e) => cb(JSON.parse(e.data)));
-        break;
-      case "open":
-      case "error":
-        this.socket.addEventListener(type, (e) => cb(e));
+      case 'message':
+        this.socket.addEventListener('message', (e) => {
+          cb(JSON.parse(e.data))
+        })
+        break
+      case 'open':
+      case 'error':
+        this.socket.addEventListener(type, (e) => {
+          cb(e)
+        })
     }
   }
 
   send(cmd: Command) {
-    this.socket.send(JSON.stringify(cmd));
+    this.socket.send(JSON.stringify(cmd))
   }
 
   init() {
-    this.socket.send(JSON.stringify({}));
+    this.socket.send(JSON.stringify({}))
   }
 
   connected() {
-    return this.socket.readyState == 1;
+    return this.socket.readyState === 1
   }
 }

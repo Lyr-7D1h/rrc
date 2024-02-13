@@ -132,7 +132,7 @@ impl Robot {
             let v = v.abs();
 
             // if not moving and at desired destination skip
-            if d < 0.000001 && v.abs() < 0.00000001 {
+            if d < 0.00000001 && v.abs() < 0.00000001 {
                 // if within a fair amount of rounding error reset everything
                 self.accelerations[i] = 0.0;
                 self.velocities[i] = 0.0;

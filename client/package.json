@@ -7,7 +7,7 @@
     "start": "vite",
     "build": "vite build",
     "format": "prettier -w src/",
-    "preview": "vite preview"
+    "lint": "eslint src/**/*"
   },
   "keywords": [],
   "author": "",
@@ -15,8 +15,13 @@
   "devDependencies": {
     "@types/dat.gui": "^0.7.12",
     "@types/three": "^0.160.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
     "dat.gui": "^0.7.9",
     "eslint": "^8.56.0",
+    "eslint-config-standard-with-typescript": "^43.0.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-n": "^16.6.2",
+    "eslint-plugin-promise": "^6.1.1",
     "prettier": "3.2.5",
     "typescript": "^5.3.3",
     "vite": "^5.0.12"

@@ -96,6 +96,8 @@ impl Fabrik {
             }
 
             // TODO: add constraints
+            // FIXME: does not converge when all joints are in a straight line and your target is
+            // also on this line  
 
             self.joints[last] = target;
             for i in (0..last).rev() {
