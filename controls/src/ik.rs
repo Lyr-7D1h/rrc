@@ -57,10 +57,6 @@ impl Fabrik {
         self.iterate(target)
     }
 
-    pub fn set_angles(&mut self, angles: Vec<f64>) {
-        todo!()
-    }
-
     pub fn angles(&self) -> Vec<f64> {
         // TODO: get angle relative to each transform of joint
         // HACK: getting angle relative to y axis due to robot being defined towards y+
@@ -97,7 +93,7 @@ impl Fabrik {
 
             // TODO: add constraints
             // FIXME: does not converge when all joints are in a straight line and your target is
-            // also on this line  
+            // also on this line
 
             self.joints[last] = target;
             for i in (0..last).rev() {

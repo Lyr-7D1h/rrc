@@ -32,16 +32,13 @@ export abstract class Joint extends Object3D {
     super()
 
     jointPos = jointPos ?? new Transform()
-    // jointPos = jointPos || new PositionalVector();
     pivot = pivot ?? new Transform()
 
     // go to local position of base and put joint there
     jointPos.updateObject(this)
-    // jointPos.moveObject(this);
     base.add(this)
 
     // translate attachment
-    // pivot.point.negate();
     pivot.updateObject(attachment)
     this.add(attachment)
 
@@ -54,7 +51,7 @@ export abstract class Joint extends Object3D {
     this.pivot = pivot
   }
 
-  togglePoint() {
+  togglePoint(): void {
     if (typeof this.dot !== 'undefined') {
       this.remove(this.dot)
       this.dot = undefined
@@ -109,7 +106,7 @@ export class PrismaticJoint extends Joint {
     return this
   }
 
-  update(value: number) {
+  update(value: number): void {
     this.translateOnAxis(this.axis, value - this.value)
     this.value = value
   }
@@ -164,7 +161,7 @@ export class RevoluteJoint extends Joint {
   }
 
   // will rotate clockwise around an axis
-  update(value: number) {
+  update(value: number): void {
     value = -(value * Math.PI) / 180
     const quat = this.origin
       .clone()

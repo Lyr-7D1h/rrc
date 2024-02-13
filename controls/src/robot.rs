@@ -57,15 +57,11 @@ impl Robot {
     }
 
     // TODO: add support for different joints and 3d space solutions
-    //
     /// Move robot using FABRIK as inverse kinematics solver on a planar field
     pub fn move_ik(&mut self, position: Vector3<f64>) -> Result<()> {
         info!("solving ik to move to {position:?}");
 
         let target = vector![position.x, position.y];
-
-        // TODO: set current state angles in FABRIK
-        // self.fabrik.set_angles()
 
         if self.fabrik.solvable(position.xy()) == false {
             warn!("target is out of reach will try to reach");
@@ -78,7 +74,7 @@ impl Robot {
 
         let lift = 1525.0 - position.z;
 
-        let desired_state = vec![angles[0], lift, angles[1], angles[2], self.desired_state[3]];
+        let desired_state = vec![angles[0], lift, angles[1], angles[2], self.desired_state[4]];
 
         self.move_to_state(desired_state)?;
 
@@ -91,7 +87,7 @@ impl Robot {
             let l = &self.limits[i];
             if *v < l.min || *v > l.max {
                 return Err(anyhow!(
-                    "desired state is not within bound of {} < {v} < {}",
+                    "joint {i}'s desired state is not within bound of {} < {v} < {}",
                     l.min,
                     l.max
                 ));

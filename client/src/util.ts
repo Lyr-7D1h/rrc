@@ -5,7 +5,7 @@ export function info(msg: any, permanent?: boolean): HTMLElement {
     msg = JSON.stringify(msg)
   }
   console.info(msg)
-  return message('info', msg, permanent === true ? undefined : 3)
+  return message('info', msg as string, permanent === true ? undefined : 3)
 }
 
 export function warn(msg: any, permanent?: boolean): HTMLElement {
@@ -13,7 +13,7 @@ export function warn(msg: any, permanent?: boolean): HTMLElement {
     msg = JSON.stringify(msg)
   }
   console.warn(msg)
-  return message('warn', msg, permanent === true ? undefined : 3)
+  return message('warn', msg as string, permanent === true ? undefined : 3)
 }
 
 export function error(msg: any, permanent?: boolean): HTMLElement {
@@ -21,7 +21,7 @@ export function error(msg: any, permanent?: boolean): HTMLElement {
     msg = JSON.stringify(msg)
   }
   console.error(msg)
-  return message('error', msg, permanent === true ? undefined : 3)
+  return message('error', msg as string, permanent === true ? undefined : 3)
 }
 
 export function toNumber(n: string): number | null {

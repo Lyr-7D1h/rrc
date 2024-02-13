@@ -1,21 +1,4 @@
-import { Vector3, type Mesh, type Object3D, Quaternion } from 'three'
-
-export function height(mesh: Mesh): number {
-  // if box geometry it is in params
-  const geometry = mesh.geometry
-  if (
-    'parameters' in geometry &&
-    geometry.parameters instanceof Object &&
-    'depth' in geometry.parameters &&
-    typeof geometry.parameters.depth === 'number'
-  ) {
-    return geometry.parameters.depth
-  }
-  if (mesh.geometry.boundingBox === null) {
-    mesh.geometry.computeBoundingBox()
-  }
-  return mesh.geometry.boundingBox!.max.z - mesh.geometry.boundingBox!.min.z
-}
+import { Vector3, type Object3D, Quaternion } from 'three'
 
 export function vec3(x?: number, y?: number, z?: number): Vector3 {
   return new Vector3(x, y, z)

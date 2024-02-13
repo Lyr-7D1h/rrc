@@ -42,7 +42,7 @@ export class Connection {
   }
 
   on(type: 'message', cb: (data: unknown) => void): void
-  on(type: 'message' | 'open' | 'error', cb: (event: Event) => void) {
+  on(type: 'message' | 'open' | 'error', cb: (event: Event) => void): void {
     switch (type) {
       case 'message':
         this.socket.addEventListener('message', (e) => {
