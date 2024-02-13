@@ -9,7 +9,12 @@ import {
 import { Link } from "./link";
 
 import { transform, quat, vec3 } from "./geometry";
-import { Joint, RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
+import {
+  Joint,
+  RevoluteJoint as RevoluteJoint,
+  PrismaticJoint as PrismaticJoint,
+  FixedJoint as FixedJoint,
+} from "./joint";
 import { Connection } from "./connection";
 
 /** The current state of the joints, always in degrees and mm's */
@@ -32,7 +37,7 @@ export class RobotGUI {
     let index = 0;
     for (let i = 0; i < robot.joints.length; i += 1) {
       const joint = robot.joints[i];
-      if (joint instanceof RotationalJoint) {
+      if (joint instanceof RevoluteJoint) {
         const name = joint.name.length > 0 ? joint.name : `rot joint ${i}`;
         const j = index;
         jointFolder
@@ -47,8 +52,9 @@ export class RobotGUI {
           });
         index += 1;
       }
-      if (joint instanceof SlidingJoint) {
-        const name = joint.name.length > 0 ? joint.name : `sliding joint ${i}`;
+      if (joint instanceof PrismaticJoint) {
+        const name =
+          joint.name.length > 0 ? joint.name : `prismatic joint ${i}`;
         const j = index;
         jointFolder
           .add(this.virtual, j, joint.min, joint.max)
@@ -138,7 +144,7 @@ export class Robot extends Object3D {
     // initialize state as zero
     this.state = this.joints
       .map((j) => {
-        if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+        if (j instanceof PrismaticJoint || j instanceof RevoluteJoint) {
           return 0;
         }
         return null;
@@ -152,7 +158,7 @@ export class Robot extends Object3D {
     const lift = new Link(width, width, 2000);
     this.addLink(lift);
     this.addJoint(
-      new RotationalJoint(
+      new RevoluteJoint(
         "swing",
         this.base,
         lift,
@@ -164,7 +170,7 @@ export class Robot extends Object3D {
     const arm = new Link(width, width, 700);
     this.addLink(arm);
     this.addJoint(
-      new SlidingJoint(
+      new PrismaticJoint(
         "lift",
         lift,
         arm,
@@ -172,64 +178,64 @@ export class Robot extends Object3D {
         transform(vec3(0, 0, 700 / 2)),
       )
         .setAxis(vec3(0, 1, 0))
-        .setContraints(0, 1500),
+        .setContraints(0, 1525),
     );
 
     const lowerArm = new Link(width, width, 750);
     this.addLink(lowerArm);
     this.addJoint(
-      new RotationalJoint(
+      new RevoluteJoint(
         "elbow",
         arm,
         lowerArm,
-        transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(-1, 0, 0)),
-        transform(vec3(0, -750 / 2 + width / 2, width / 2), quat(1, 0, 0)),
+        transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(1, 0, 0)),
+        transform(vec3(0, 750 / 2 - width / 2, -width / 2), quat(1, 0)),
       ).setContraints(-150, 150),
     );
 
     const extension = new Link(width, width, 300);
     this.addLink(extension);
     this.addJoint(
-      new RotationalJoint(
+      new RevoluteJoint(
         "wrist",
         lowerArm,
         extension,
-        transform(vec3(0, width / 2, 750 / 2 - width / 2), quat(-1, 0, 0)),
-        transform(vec3(0, 0, 300 / 2)),
+        transform(vec3(0, -width / 2, -750 / 2 + width / 2), quat(-1, 0, 0)),
+        transform(vec3(0, 0, -300 / 2)),
       ),
     );
 
-    const extensionExtension = new Link(width, 50, width);
+    const extensionExtension = new Link(width, width, 50);
     this.addLink(extensionExtension);
     this.addJoint(
-      new StaticJoint(
+      new FixedJoint(
         "",
         extension,
         extensionExtension,
-        transform(vec3(0, -width / 2, 0), quat(1, 0, 0)),
-        transform(vec3(0, 0, width / 2)),
+        transform(vec3(0, width / 2, 0)),
+        transform(vec3(0, width / 2, 0)),
       ),
     );
 
     const gripper = new Link(width, 50, width - 25);
     this.addLink(gripper);
     this.addJoint(
-      new SlidingJoint(
+      new PrismaticJoint(
         "gripper",
         extensionExtension,
         gripper,
-        transform(vec3(0, 50 / 2, width / 2 - 50 / 2), quat(-1, 0, 0)),
-        transform(vec3(0, 0, 62.5)),
+        transform(vec3(0, width / 2 - 50 / 2, -50 / 2)),
+        transform(vec3(0, 0, -62.5)),
       )
         .setAxis(vec3(0, 1, 0))
-        .setContraints(0, 100),
+        .setContraints(-100, 0),
     );
   }
 
   limits() {
     return this.joints
       .map((j, i) => {
-        if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+        if (j instanceof PrismaticJoint || j instanceof RevoluteJoint) {
           return {
             index: i,
             acceleration: j.maxAcceleration,
@@ -253,7 +259,6 @@ export class Robot extends Object3D {
   }
 
   move(state: State) {
-    console.log(state)
     this.connection.send({
       type: "move",
       state,
@@ -266,10 +271,10 @@ export class Robot extends Object3D {
       this.gui.update(state);
     }
 
-    // ignore static joints
+    // ignore fixed joints
     let i = 0;
     for (const j of this.joints) {
-      if (j instanceof SlidingJoint || j instanceof RotationalJoint) {
+      if (j instanceof PrismaticJoint || j instanceof RevoluteJoint) {
         j.update(state[i] as number);
         i += 1;
       }

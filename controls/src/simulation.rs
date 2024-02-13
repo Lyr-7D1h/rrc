@@ -3,13 +3,7 @@ use std::time::Duration;
 use anyhow::Result;
 use log::{error, info};
 
-
-
-
-
-
-
-
+use nalgebra::Vector3;
 use tokio::sync::mpsc::Receiver;
 
 use crate::robot::{Robot, State};
@@ -45,7 +39,7 @@ impl Simulation {
                 Err(e) => error!("failed to create robot: {e}"),
             },
             Command::Ikmove { position } => {
-                if let Err(e) = self.robot.as_mut().unwrap().move_ik(k::Vector3::new(
+                if let Err(e) = self.robot.as_mut().unwrap().move_ik(Vector3::new(
                     position[0],
                     position[1],
                     position[2],

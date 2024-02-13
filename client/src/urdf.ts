@@ -1,6 +1,6 @@
 import { vec3 } from "./geometry";
 import { Robot } from "./robot";
-import { RotationalJoint, SlidingJoint, StaticJoint } from "./joint";
+import { RevoluteJoint, PrismaticJoint, FixedJoint } from "./joint";
 import { Link } from "./link";
 
 export function robotToUrdf(robot: Robot): string {
@@ -54,7 +54,7 @@ ${
         .add(parent.position);
       let xyz = `${position.x / 1000} ${position.y / 1000} ${position.z / 1000}`;
 
-      if (joint instanceof RotationalJoint) {
+      if (joint instanceof RevoluteJoint) {
         // from degrees to rad
         let lower = (joint.min * 180) / Math.PI;
         let upper = (joint.max * 180) / Math.PI;
@@ -66,7 +66,7 @@ ${
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
   <limit lower="${lower}" upper="${upper}" effort="100" velocity="${velocity}"/>
 </joint>`;
-      } else if (joint instanceof SlidingJoint) {
+      } else if (joint instanceof PrismaticJoint) {
         // from mm to m
         let lower = joint.min / 1000;
         let upper = joint.max / 1000;
@@ -78,7 +78,7 @@ ${
   <axis xyz="${joint.axis.x} ${joint.axis.y} ${joint.axis.z}" />
   <limit lower="${lower}" upper="${upper}" effort="100" velocity="${velocity}"/>
 </joint>`;
-      } else if (joint instanceof StaticJoint) {
+      } else if (joint instanceof FixedJoint) {
         return `<joint name="${joint.name}" type="fixed">
   <origin xyz="${xyz}" rpy="${rpy}"/>
   <parent link="${joint.base.name}" />

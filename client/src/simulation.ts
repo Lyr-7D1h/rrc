@@ -1,17 +1,12 @@
 import { GUI } from "dat.gui";
 import { OrbitControls } from "@three-ts/orbit-controls";
 import {
-  AxesHelper,
-  BoxGeometry,
   BufferAttribute,
   BufferGeometry,
   PerspectiveCamera,
-  PlaneGeometry,
   Points,
   PointsMaterial,
-  Quaternion,
   Scene,
-  Vector3,
   WebGLRenderer,
 } from "three";
 import Stats from "three/examples/jsm/libs/stats.module";

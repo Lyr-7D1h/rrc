@@ -2,10 +2,12 @@ import {
   AxesHelper,
   BufferAttribute,
   BufferGeometry,
+  Euler,
   Mesh,
   Object3D,
   Points,
   PointsMaterial,
+  Quaternion,
   Vector3,
 } from "three";
 
@@ -72,8 +74,8 @@ export abstract class Joint extends Object3D {
 
   abstract update(value: number): void;
 }
-export class SlidingJoint extends Joint {
-  override type: string = "sliding";
+export class PrismaticJoint extends Joint {
+  override type: string = "prismatic";
   origin: Vector3;
   value: number;
 
@@ -99,10 +101,10 @@ export class SlidingJoint extends Joint {
     this.axis = vec3(0, 0, 1).applyQuaternion(this.quaternion);
     this.min = -100;
     this.max = 100;
-    this.maxVelocity = 100;
-    this.maxAcceleration = 10;
+    this.maxVelocity = 200;
+    this.maxAcceleration = 50;
   }
-  setAxis(axis: Vector3): SlidingJoint {
+  setAxis(axis: Vector3): PrismaticJoint {
     this.axis = axis;
     return this;
   }
@@ -113,14 +115,14 @@ export class SlidingJoint extends Joint {
   contraints(): [number, number] | null {
     return [this.min, this.max];
   }
-  setContraints(min: number, max: number): SlidingJoint {
+  setContraints(min: number, max: number): PrismaticJoint {
     this.min = min;
     this.max = max;
     return this;
   }
 }
-export class RotationalJoint extends Joint {
-  override type: string = "rotational";
+export class RevoluteJoint extends Joint {
+  override type: string = "revolute";
   oldValue: number;
   value: number;
 
@@ -129,6 +131,8 @@ export class RotationalJoint extends Joint {
   max: number;
   maxVelocity: number;
   maxAcceleration: number;
+
+  origin: Quaternion;
 
   axis: Vector3;
   constructor(
@@ -146,28 +150,35 @@ export class RotationalJoint extends Joint {
     this.axis = vec3(0, 0, 1);
     this.min = -180;
     this.max = 180;
-    this.maxVelocity = 20;
-    this.maxAcceleration = 1;
+    this.maxVelocity = 100;
+    this.maxAcceleration = 20;
+    this.origin = this.quaternion.clone();
   }
-  setAxis(axis: Vector3): RotationalJoint {
+  setAxis(axis: Vector3): RevoluteJoint {
     this.axis = axis;
     return this;
   }
-  update(newValue: number) {
-    this.rotateOnAxis(this.axis, ((newValue - this.value) * Math.PI) / 180);
-    this.value = newValue;
+  // will rotate clockwise around an axis
+  update(value: number) {
+    value = -(value * Math.PI) / 180;
+    let quat = this.origin
+      .clone()
+      .multiply(
+        new Quaternion().setFromAxisAngle(this.axis, value).normalize(),
+      );
+    this.quaternion.copy(quat);
   }
   contraints(): [number, number] | null {
     return [this.min, this.max];
   }
-  setContraints(min: number, max: number): RotationalJoint {
+  setContraints(min: number, max: number): RevoluteJoint {
     this.min = min;
     this.max = max;
     return this;
   }
 }
-export class StaticJoint extends Joint {
-  override type: string = "static";
+export class FixedJoint extends Joint {
+  override type: string = "fixed";
   update() {}
   contraints(): [number, number] | null {
     return null;

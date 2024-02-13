@@ -1,41 +1,22 @@
-use std::f64::consts::PI;
+use anyhow::{anyhow, Result};
 
-use anyhow::{anyhow, Context, Result};
+use log::{info, warn};
+use nalgebra::{vector, Vector3};
 
-use k::{
-    nalgebra::{ComplexField, DimDiv, DimNameDiv},
-    Constraints, InverseKinematicsSolver, SerialChain, Translation3,
-};
-
-use log::info;
-use nphysics3d::{
-    joint::Joint,
-    math::{Isometry, Translation},
-    nalgebra::UnitQuaternion,
-};
-
-use crate::server::Limits;
+use crate::{ik::Fabrik, server::Limits};
 
 pub type State = Vec<f64>;
-
-fn pose_to_isometry(pose: &urdf_rs::Pose) -> Isometry<f32> {
-    let [x, y, z] = pose.xyz.map(|x| x as f32);
-    let trans = Translation::new(x, y, z);
-    let [r, p, y] = pose.rpy.map(|x| x as f32);
-    let quat = UnitQuaternion::from_euler_angles(r, p, y);
-    Isometry::from_parts(trans, quat)
-}
 
 pub struct Robot {
     velocities: Vec<f64>,
     accelerations: Vec<f64>,
     /// joint values (dofs)
     state: State,
+    /// desired joint values (dofs)
     desired_state: State,
     urdf: urdf_rs::Robot,
-    chain: k::Chain<f64>,
+    fabrik: Fabrik,
     limits: Vec<Limits>,
-    pids: Vec<Pid>,
 }
 
 impl Robot {
@@ -49,95 +30,62 @@ impl Robot {
         limits: Vec<Limits>,
         initial_state: State,
     ) -> Result<Robot> {
-        let chain = k::Chain::from(&urdf);
         // assume that robot is not moving now
-        let velocities: State = (0..chain.dof()).map(|_| 0.0).collect();
+        let velocities: State = (0..initial_state.len()).map(|_| 0.0).collect();
         let accelerations: State = velocities.clone();
-        let pids = (0..chain.dof()).map(|_| Pid::new(1.0, 0.1, 0.01)).collect();
-        chain.set_joint_positions(&initial_state)?;
-        chain.update_transforms();
+
+        // TODO: get joint positions from spec
+        let joint_positions = vec![
+            vector![0.0, 0.0],
+            vector![0.0, 725.0],
+            vector![0.0, 1325.0],
+            // end effector
+            vector![0.0, 1525.0],
+        ];
+        let constraints = limits.iter().map(|l| (l.min, l.max)).collect();
+        let fabrik = Fabrik::new(joint_positions, constraints, 0.000000001, 1000)?;
 
         Ok(Robot {
             velocities,
             accelerations,
             desired_state: initial_state.clone(),
             state: initial_state,
-            pids,
-            chain,
             urdf,
+            fabrik,
             limits,
         })
     }
 
-    /// HACK: using known ik solver using urdf
-    /// Move robot using inverse kinematics solver
-    pub fn move_ik(&mut self, mut position: k::Vector3<f64>) -> Result<()> {
-        position /= 1000.0;
+    // TODO: add support for different joints and 3d space solutions
+    //
+    /// Move robot using FABRIK as inverse kinematics solver on a planar field
+    pub fn move_ik(&mut self, position: Vector3<f64>) -> Result<()> {
+        info!("solving ik to move to {position:?}");
 
-        info!("ikmove of robot to {position:?}");
+        let target = vector![position.x, position.y];
 
-        println!("{}", self.chain);
-        // FIXME: assumes end effector name
-        let end_effector = self
-            .chain
-            .find("gripper")
-            .context("could not find end effector")?;
+        // TODO: set current state angles in FABRIK
+        // self.fabrik.set_angles()
 
-        let arm = SerialChain::from_end(end_effector);
-
-        let mut i = 0;
-        let urdf_state: State = self
-            .urdf
-            .joints
-            .iter()
-            .filter_map(|j| match j.joint_type {
-                urdf_rs::JointType::Revolute => {
-                    let v = self.state[i] * PI / 180.0;
-                    i += 1;
-                    Some(v)
-                }
-                urdf_rs::JointType::Prismatic => {
-                    let v = self.state[i] / 1000.0;
-                    i += 1;
-                    Some(v)
-                }
-                _ => None,
-            })
-            .collect();
-        arm.set_joint_positions(&urdf_state)?;
-
-        let mut target = self.chain.update_transforms().last().unwrap().clone();
-        // let mut target = end_effector
-        //     .world_transform()
-        //     .context("failed to get world transform")?;
-        target.translation = Translation3::new(position.x, position.y, position.z);
-
-        let solver = k::JacobianIkSolver::default();
-
-        // FIXME: allow for different constraints
-        let constraints = Constraints {
-            position_x: false,
-            position_y: false,
-            position_z: true,
-            rotation_x: true,
-            rotation_y: true,
-            rotation_z: true,
-            // ignored_joint_names: vec!["gripper".to_string()],
-            ignored_joint_names: vec![],
-        };
-        solver.solve_with_constraints(&arm, &target, &constraints)?;
-        self.chain.update_transforms();
-        let solved_pose = end_effector.world_transform().unwrap();
-        for (_i, trans) in arm.update_transforms().iter().enumerate() {
-            println!("{trans:?}");
+        if self.fabrik.solvable(position.xy()) == false {
+            warn!("target is out of reach will try to reach");
         }
 
-        return Ok(());
+        let iterations = self.fabrik.move_to(target, true)?;
+        info!("ik solved within {iterations} iterations");
+
+        let angles = self.fabrik.angles_deg();
+
+        let lift = 1525.0 - position.z;
+
+        let desired_state = vec![angles[0], lift, angles[1], angles[2], self.desired_state[3]];
+
+        self.move_to_state(desired_state)?;
+
+        Ok(())
     }
 
     pub fn move_to_state(&mut self, desired_state: State) -> Result<()> {
-        info!("moving robot to {desired_state:?}");
-
         // check if state is within bounds
         for (i, v) in desired_state.iter().enumerate() {
             let l = &self.limits[i];
@@ -149,6 +97,8 @@ impl Robot {
                 ));
             }
         }
+
+        info!("moving robot to {desired_state:?}");
 
         self.desired_state = desired_state;
 
@@ -182,7 +132,7 @@ impl Robot {
             let v = v.abs();
 
             // if not moving and at desired destination skip
-            if d < 0.000001 && v.abs() < 0.000001 {
+            if d < 0.000001 && v.abs() < 0.00000001 {
                 // if within a fair amount of rounding error reset everything
                 self.accelerations[i] = 0.0;
                 self.velocities[i] = 0.0;
@@ -220,49 +170,6 @@ impl Robot {
             }
 
             self.accelerations[i] = a_o;
-            // println!(
-            //     "velocity={} acc={} dist={} {} {}",
-            //     v_sign * v,
-            //     // v,
-            //     self.accelerations[i],
-            //     sign * d,
-            //     v_break,
-            //     v_expected
-            // );
         }
-    }
-}
-
-struct Pid {
-    kp: f32,
-    ki: f32,
-    kd: f32,
-    integral: f32,
-    prev_error: f32,
-}
-impl Pid {
-    fn new(kp: f32, ki: f32, kd: f32) -> Pid {
-        Pid {
-            kp,
-            ki,
-            kd,
-            integral: 0.0,
-            prev_error: 0.0,
-        }
-    }
-
-    fn update(&mut self, s_t: f32, p_t: f32, dt: f32) -> f32 {
-        let e = s_t - p_t;
-
-        let p = self.kp * e;
-
-        self.integral += e * dt;
-        let i = self.ki * self.integral;
-
-        let mut d = (e - self.prev_error) / dt;
-        d *= self.kd;
-
-        self.prev_error = e;
-        return p + i + d;
     }
 }
