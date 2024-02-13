@@ -1,4 +1,4 @@
-use std::{fmt::Write, ops::Deref, sync::Arc, thread::sleep, time::Duration};
+use std::{ops::Deref, sync::Arc, thread::sleep, time::Duration};
 
 use anyhow::{anyhow, Context, Result};
 use crossbeam::epoch::{pin, Atomic, Owned};

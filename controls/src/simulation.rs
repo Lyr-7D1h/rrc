@@ -62,8 +62,8 @@ impl Simulation {
     {
         info!("Starting simulation");
 
-        // TODO: want to run continously and get the dt
-        // update state very 10ms
+        // TODO: want to run continously and get the average dt
+        // update state every 10ms
         let mut interval = tokio::time::interval(Duration::from_millis(10));
 
         loop {

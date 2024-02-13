@@ -14,7 +14,7 @@ pub struct Robot {
     state: State,
     /// desired joint values (dofs)
     desired_state: State,
-    urdf: urdf_rs::Robot,
+    _urdf: urdf_rs::Robot,
     fabrik: Fabrik,
     limits: Vec<Limits>,
 }
@@ -50,7 +50,7 @@ impl Robot {
             accelerations,
             desired_state: initial_state.clone(),
             state: initial_state,
-            urdf,
+            _urdf: urdf,
             fabrik,
             limits,
         })
