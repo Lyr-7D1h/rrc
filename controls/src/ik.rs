@@ -79,6 +79,7 @@ impl Fabrik {
     }
 
     fn iterate(&mut self, target: Vector2<f64>) -> Result<usize> {
+        // TODO: check if joints are in a straight line if so add a slight angle http://www.andreasaristidou.com/publications/papers/FABRIK.pdf#%5B%7B%22num%22%3A183%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22FitR%22%7D%2C0%2C467%2C545%2C467%5D
         let mut iteration: usize = 0;
         let initial_position: Vector2<f64> = self.joints[0];
         let last = self.joints.len() - 1;
