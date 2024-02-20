@@ -87,11 +87,12 @@ impl SimulationServer {
             }
         });
 
-        // simulation should be always be running as when this is connected to a real robot it
+        // simulation should always be running as when this is connected to a real robot it
         // should keep its physical sim in check and handle possible feedback
         let mut simulation = Simulation::new()?;
         simulation
             .run(cmd_rx, move |s| {
+                // update state in a non blocking manner
                 if let Some(update) = s.robot_state() {
                     let update = Owned::new(update.clone());
 
@@ -124,7 +125,7 @@ impl SimulationServer {
         info!("New WebSocket connection: {}", addr);
 
         loop {
-            // parse and forward commands from stream to simulation
+            // if command received, parse and forward commands from stream to simulation
             if let Some(msg) = ws_stream.try_next().now_or_never() {
                 if let Some(message) = msg.context("error occurred while reading from stream")? {
                     let command: Command = match message {
@@ -141,6 +142,7 @@ impl SimulationServer {
                 }
             };
 
+            // send robot state update to client
             let update = {
                 let p = pin();
                 let update = unsafe {

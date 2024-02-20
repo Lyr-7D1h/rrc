@@ -156,7 +156,7 @@ impl Robot {
                 // next time step is beyond breaking point
 
                 // acceleration needed to go to zero while compensating for undershooting distance
-                // a slope that will create a same distance as the slope for breaking point slope
+                // a slope that will go over a same distance as the breaking point slope
                 a_o = v_sign * -(v.powi(2)) / (2.0 * d);
             }
 

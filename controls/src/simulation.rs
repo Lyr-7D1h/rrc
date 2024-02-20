@@ -35,6 +35,7 @@ impl Simulation {
                 Ok(r) => {
                     info!("creating new robot from specs");
                     self.robot = Some(r);
+                    // TODO: save to disc
                 }
                 Err(e) => error!("failed to create robot: {e}"),
             },
