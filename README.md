@@ -1,4 +1,4 @@
-# Rustic Robot Controller
+# Rustic Robot Controls
 
 Software for simulating, controlling and visualizing robots
 
