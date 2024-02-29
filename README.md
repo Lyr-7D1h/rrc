@@ -2,6 +2,8 @@
 
 Software for simulation and visualizing robots
 
+https://github.com/Lyr-7D1h/rrc/assets/23296032/19cc6a0a-c9c9-4313-a62a-65f1c5ae108e
+
 # Usage
 
 **Client**
