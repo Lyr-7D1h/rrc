@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Result};
-use nalgebra::{Unit, Vector2};
+use nalgebra::Vector2;
 
 pub struct Fabrik {
     joints: Vec<Vector2<f64>>,

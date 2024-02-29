@@ -1,6 +1,10 @@
-# Rustic Robot Simulator
+# Rustic Robot Controller
 
-Software for simulation and visualizing robots
+Software for simulating, controlling and visualizing robots
+
+> [!WIP]
+> Currently this is a work in progress. It only simulates the robotic state and does not actually control a robot yet.
+> My goal is to eventually use this software to visualize, control and simulate movements of any generic robotic object.
 
 https://github.com/Lyr-7D1h/rrc/assets/23296032/19cc6a0a-c9c9-4313-a62a-65f1c5ae108e
 

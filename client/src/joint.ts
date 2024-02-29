@@ -181,7 +181,7 @@ export class RevoluteJoint extends Joint {
 }
 export class FixedJoint extends Joint {
   override type: string = 'fixed'
-  update() {}
+  update(): void {}
   contraints(): [number, number] | null {
     return null
   }
